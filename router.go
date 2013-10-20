@@ -39,7 +39,6 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    log.Println(r.URL.Path, route)
     if t, has := rt.controllers[route.Controller]; has {
         controller := reflect.New(t)
         if action := controller.MethodByName(route.Action); action.IsValid() {
@@ -74,11 +73,11 @@ func (rt *Router) InitConfig(filename string) {
 func (rt *Router) Route(path string) (*Route, map[string]string) {
     path = strings.ToLower(path)
     for _,pr := range rt.routes {
-        if m := pr.Regexp.FindStringSubmatch(path); len(m) == 2 {
+        if match := pr.Regexp.FindStringSubmatch(path); len(match) == 2 {
             for _,r := range pr.Routes {
-                if p := r.Regexp.FindStringSubmatch(m[1]); len(p) > 0 {
-                    params := make(map[string]string, len(p) - 1)
-                    for i, v := range p[1:] {
+                if parts := r.Regexp.FindStringSubmatch(match[1]); len(parts) > 0 {
+                    params := make(map[string]string, len(parts) - 1)
+                    for i, v := range parts[1:] {
                         params[r.Keys[i]] = v
                     }
 
