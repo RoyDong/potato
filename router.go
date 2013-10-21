@@ -1,6 +1,7 @@
 package potato
 
 import (
+    "os"
     "log"
     "strings"
     "regexp"
@@ -29,13 +30,23 @@ type Router struct {
 }
 
 func NewRouter() *Router {
-    return &Router{controllers: make(map[string]reflect.Type)}
+    return &Router{
+        controllers: make(map[string]reflect.Type),
+    }
 }
 
 func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+    //static files
+    file := Dir.Static + r.URL.Path[1:]
+    if info, e := os.Stat(file); e == nil && (!info.IsDir() || Config.AllowDir) {
+        http.ServeFile(w, r, file)
+        return
+    }
+
+    //dynamic request
     route, params := rt.Route(r.URL.Path)
     if route == nil {
-        log.Println(r.URL.Path, "not match")
+        Logger.Println(r.URL.Path, "not match", file)
         return
     }
 
@@ -43,8 +54,7 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         controller := reflect.New(t)
         if action := controller.MethodByName(route.Action); action.IsValid() {
             v := reflect.ValueOf(&Controller{
-                Request: r,
-                Params: params,
+                Request: &Request{Request: r, params: params},
                 RW: w,
             })
             controller.Elem().FieldByName("Controller").Set(v)
@@ -52,7 +62,11 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
                 init.Call(nil)
             }
             action.Call(nil)
+        } else {
+            log.Println("action not found")
         }
+    } else {
+        log.Println("controller not found")
     }
 }
 
@@ -65,7 +79,6 @@ func (rt *Router) InitConfig(filename string) {
         pr.Regexp = regexp.MustCompile("^" + pr.Prefix + "(.*)$")
         for _,r := range pr.Routes {
             r.Regexp = regexp.MustCompile("^" + r.Match + "$")
-            log.Println(pr.Prefix, pr.Regexp, r)
         }
     }
 }

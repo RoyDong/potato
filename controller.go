@@ -5,7 +5,6 @@ import (
 )
 
 type Controller struct {
-    Request *http.Request
-    Params map[string]string
+    Request *Request
     RW http.ResponseWriter
 }
