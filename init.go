@@ -42,7 +42,6 @@ type ConfigFile struct {
 
     LogDir string `yaml:"log_dir"`
     StaticDir string `yaml:"static_dir"`
-    AllowDir bool `yaml:"allow_dir"`
 
     Http struct {
         Host string `yaml:"host"`

@@ -38,7 +38,7 @@ func NewRouter() *Router {
 func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     //static files
     file := Dir.Static + r.URL.Path[1:]
-    if info, e := os.Stat(file); e == nil && (!info.IsDir() || Config.AllowDir) {
+    if info, e := os.Stat(file); e == nil && !info.IsDir() {
         http.ServeFile(w, r, file)
         return
     }
