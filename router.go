@@ -84,7 +84,6 @@ func (rt *Router) InitConfig(filename string) {
 }
 
 func (rt *Router) Route(path string) (*Route, map[string]string) {
-    //case insensitive, all prefix and match must writen in lower case
     path = strings.ToLower(path)
     for _,pr := range rt.routes {
         if match := pr.Regexp.FindStringSubmatch(path); len(match) == 2 {
