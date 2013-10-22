@@ -50,10 +50,11 @@ type AppDirStruct struct {
 
 func Init() {
     //initialize config
-    var c map[string]interface{}
+    var c map[interface{}]interface{}
     if e := LoadYaml(&c, Dir.Config + "config.yml"); e != nil {
         log.Fatal(e)
     }
+
 
     if name, ok := c["name"].(string); ok {
         AppName = name
@@ -63,7 +64,7 @@ func Init() {
         Env = env
     }
 
-    if http, ok := c["http"].(map[string]interface{}); ok {
+    if http, ok := c["http"].(map[interface{}]interface{}); ok {
         if host, ok := http["host"].(string); ok {
             Host = host
         }
@@ -85,18 +86,27 @@ func Init() {
         Dir.Static = dir
     }
 
-    if eh, ok := c["error_handler"].(map[string]interface{}); ok {
-        if nf, ok := eh["not_found"].(map[string]string); ok {
-            NotFoundRoute.Controller = nf["controller"]
-            NotFoundRoute.Action = nf["action"]
+    if eh, ok := c["error_handler"].(map[interface{}]interface{}); ok {
+        if nf, ok := eh["not_found"].(map[interface{}]interface{}); ok {
+            if v, ok := nf["controller"].(string); ok {
+                NotFoundRoute.Controller = v
+            }
+
+            if v, ok := nf["action"].(string); ok {
+                NotFoundRoute.Action= v
+            }
         }
 
-        if se, ok := eh["server_error"].(map[string]string); ok {
-            ServerErrorRoute.Controller = se["controller"]
-            ServerErrorRoute.Action = se["action"]
+        if se, ok := eh["server_error"].(map[interface{}]interface{}); ok {
+            if v, ok := se["controller"].(string); ok {
+                ServerErrorRoute.Controller = v
+            }
+
+            if v, ok := se["action"].(string); ok {
+                ServerErrorRoute.Action = v
+            }
         }
     }
-
 
     //initialize logger
     file, e := os.OpenFile(Dir.Log + Env + ".log",
@@ -117,5 +127,5 @@ func Init() {
         Handler: R,
     }
 
-    Logger.Println("Server started")
+    Logger.Println(fmt.Sprintf("Server ready: %s:%d", Host, Port))
 }
