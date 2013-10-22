@@ -13,15 +13,15 @@ type Route struct {
     Name string `yaml:"name"`
     Controller string `yaml:"controller"`
     Action string `yaml:"action"`
-    Match string `yaml:"match"`
+    Pattern string `yaml:"pattern"`
     Keys []string `yaml:"keys"`
     Regexp *regexp.Regexp
 }
 
+//routes are grouped by their prefixes
+//when routing a url, first match the prefixes
+//then match the patterns of each route
 type PrefixedRoutes struct {
-
-    //routes are grouped by their prefixes
-    //when matching a route, first match its prefix then match the rest
     Prefix string `yaml:"prefix"`
     Regexp *regexp.Regexp
     Routes []*Route `yaml:"routes"`
@@ -40,41 +40,23 @@ func NewRouter() *Router {
     }
 }
 
-func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+/**
+ * RegController register controller on router
+ */
+func (rt *Router) RegController(c interface{}) {
+    elem := reflect.ValueOf(c).Elem()
 
-    //static files, disallow all dir requests
-    file := Dir.Static + r.URL.Path[1:]
-    if info, e := os.Stat(file); e == nil && !info.IsDir() {
-        http.ServeFile(w, r, file)
-        return
-    }
-
-    //dynamic request
-    route, params := rt.Route(r.URL.Path)
-    if route == nil {
-        Logger.Println(r.URL.Path, "not match")
-        return
-    }
-
-    if t, has := rt.controllers[route.Controller]; has {
-        controller := reflect.New(t)
-        if action := controller.MethodByName(route.Action); action.IsValid() {
-            request := &Request{Request: r, Route: route, params: params}
-            v := reflect.ValueOf(&Controller{Request: request, RW: w})
-            controller.Elem().FieldByName("Controller").Set(v)
-            if init := controller.MethodByName("Init"); init.IsValid() {
-                init.Call(nil)
-            }
-            action.Call(nil)
-        } else {
-            log.Println("action not found")
-        }
-    } else {
-        log.Println("controller not found")
+    //Controller must embeded from *potato.Controller
+    if elem.FieldByName("Controller").CanSet() {
+        t := elem.Type()
+        rt.controllers[t.Name()] = t
     }
 }
 
-func (rt *Router) RunAction(r *Request) {
+func (rt *Router) Init(cs []interface{}) {
+    for _,c := range cs {
+        rt.RegController(c)
+    }
 }
 
 func (rt *Router) InitConfig(filename string) {
@@ -84,11 +66,28 @@ func (rt *Router) InitConfig(filename string) {
 
     for _,pr := range rt.routes {
 
-        //prepare regexp for prefixes and routes
+        //prepare regexps for prefixed routes
         pr.Regexp = regexp.MustCompile("^" + pr.Prefix + "(.*)$")
         for _,r := range pr.Routes {
-            r.Regexp = regexp.MustCompile("^" + r.Match + "$")
+            r.Regexp = regexp.MustCompile("^" + r.Pattern + "$")
         }
+    }
+}
+
+
+func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+
+    //static files, deny all dir requests
+    file := Dir.Static + r.URL.Path[1:]
+    if info, e := os.Stat(file); e == nil && !info.IsDir() {
+        http.ServeFile(w, r, file)
+
+    //dynamic requests
+    } else {
+        route, params := rt.Route(r.URL.Path);
+        rq := &Request{r, params}
+        rp := &Response{w}
+        rt.RunAction(route, rq, rp)
     }
 }
 
@@ -118,24 +117,40 @@ func (rt *Router) Route(path string) (*Route, map[string]string) {
         }
     }
 
-    return nil, nil
+    Logger.Println(path, "no route found")
+    return NotFoundRoute, nil
 }
 
-/**
- * RegController register controller on router
- */
-func (rt *Router) RegController(c interface{}) {
-    elem := reflect.ValueOf(c).Elem()
+func (rt *Router) RunAction(r *Route, rq *Request, rp *Response) {
+    if t, has := rt.controllers[r.Controller]; has {
 
-    //Controller must embeded from *potato.Controller
-    if elem.FieldByName("Controller").CanSet() {
-        t := elem.Type()
-        rt.controllers[t.Name()] = t
+        //initialize controller
+        controller := reflect.New(t)
+        controller.Elem().FieldByName("Controller").
+                Set(reflect.ValueOf(&Controller{rq, rp}))
+
+        //if action not found check the NotFound method
+        action := controller.MethodByName(r.Action)
+        if !action.IsValid() && r.Action != NotFoundRoute.Action {
+            Logger.Println(r.Action, "action not found")
+
+            if nf := controller.MethodByName(NotFoundRoute.Action); nf.IsValid() {
+                action = nf
+            } else {
+                goto NF
+            }
+        }
+
+        //if controller has Init method, run it first
+        if init := controller.MethodByName("Init"); init.IsValid() {
+            init.Call(nil)
+        }
+
+        action.Call(nil)
+        return
     }
+
+    NF: http.NotFound(rp.ResponseWriter, rq.Request)
 }
 
-func (rt *Router) RegControllers(cs []interface{}) {
-    for _,c := range cs {
-        rt.RegController(c)
-    }
-}
+

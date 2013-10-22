@@ -8,7 +8,6 @@ import (
 
 type Request struct {
     *http.Request
-    Route *Route
     params map[string]string
 }
 

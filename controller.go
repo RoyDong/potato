@@ -1,10 +1,10 @@
 package potato
 
 import (
-    "net/http"
+    _"net/http"
 )
 
 type Controller struct {
     Request *Request
-    RW http.ResponseWriter
+    Response *Response
 }

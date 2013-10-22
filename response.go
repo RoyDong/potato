@@ -5,6 +5,6 @@ import (
 )
 
 type Response struct {
-
+    http.ResponseWriter
 }
 

@@ -8,11 +8,15 @@ import (
 )
 
 var (
-    Env = "prod"
-
+    AppName = "a potato application"
     Version = "0.0.1"
+    Env     = "prod"
 
-    Dir = &AppDirStruct{
+    Host    = "localhost"
+    Port    = 80
+    Timeout = 30
+
+    Dir     = &AppDirStruct{
         Config:     "./config/",
         Controller: "./controller/",
         Model:      "./model/",
@@ -20,10 +24,19 @@ var (
         Log:        "./log/",
     }
 
+    NotFoundRoute = &Route{
+        Controller: "Error",
+        Action: "NotFound",
+    }
+
+    ServerErrorRoute = &Route{
+        Controller: "Error",
+        Action: "ServerError",
+    }
+
     R *Router
     S *http.Server
 
-    Config *ConfigFile
     Logger *log.Logger
 )
 
@@ -35,38 +48,57 @@ type AppDirStruct struct {
     Log string
 }
 
-type ConfigFile struct {
-    Name string `yaml:"name"`
-    Env string `yaml:"env"`
-
-
-    LogDir string `yaml:"log_dir"`
-    StaticDir string `yaml:"static_dir"`
-
-    Http struct {
-        Host string `yaml:"host"`
-        Port int `yaml:"port"`
-        Timeout int `yaml:"timeout"`
-    } `yaml:"http"`
-}
-
 func Init() {
-    //load config
-    if e := LoadYaml(&Config, Dir.Config + "config.yml"); e != nil {
+    //initialize config
+    var c map[string]interface{}
+    if e := LoadYaml(&c, Dir.Config + "config.yml"); e != nil {
         log.Fatal(e)
     }
 
-    if len(Config.Env) > 0 {
-        Env = Config.Env
-    }
-    if len(Config.StaticDir) > 0 {
-        Dir.Static = Config.StaticDir
-    }
-    if len(Config.LogDir) > 0 {
-        Dir.Log = Config.LogDir
+    if name, ok := c["name"].(string); ok {
+        AppName = name
     }
 
-    //init logger
+    if env, ok := c["env"].(string); ok {
+        Env = env
+    }
+
+    if http, ok := c["http"].(map[string]interface{}); ok {
+        if host, ok := http["host"].(string); ok {
+            Host = host
+        }
+
+        if port, ok := http["port"].(int); ok {
+            Port = port
+        }
+
+        if t, ok := http["timeout"].(int); ok {
+            Timeout = t
+        }
+    }
+
+    if dir, ok := c["static_dir"].(string); ok {
+        Dir.Static = dir
+    }
+
+    if dir, ok := c["log_dir"].(string); ok {
+        Dir.Static = dir
+    }
+
+    if eh, ok := c["error_handler"].(map[string]interface{}); ok {
+        if nf, ok := eh["not_found"].(map[string]string); ok {
+            NotFoundRoute.Controller = nf["controller"]
+            NotFoundRoute.Action = nf["action"]
+        }
+
+        if se, ok := eh["server_error"].(map[string]string); ok {
+            ServerErrorRoute.Controller = se["controller"]
+            ServerErrorRoute.Action = se["action"]
+        }
+    }
+
+
+    //initialize logger
     file, e := os.OpenFile(Dir.Log + Env + ".log",
             os.O_CREATE | os.O_WRONLY | os.O_APPEND, 0666)
     if e != nil {
@@ -75,33 +107,15 @@ func Init() {
 
     Logger = log.New(file, "", log.LstdFlags)
 
-    //init router and load routes config file
+    //initialize router and load routes config file
     R = NewRouter()
     R.InitConfig(Dir.Config + "routes.yml")
 
-    //create server
+    //initialize server
     S = &http.Server{
-        Addr: fmt.Sprintf(":%d", Config.Http.Port),
+        Addr: fmt.Sprintf(":%d", Port),
         Handler: R,
     }
 
     Logger.Println("Server started")
 }
-
-/*
-func Log(v ...interface{}) {
-    if Env == "dev" {
-        log.Println(v)
-    }
-
-    Logger.Println(v)
-}
-
-func Fatal(v ...interface{}) {
-    if Env == "dev" {
-        log.Println(v)
-    }
-
-    Logger.Fatal(v)
-}
-*/
