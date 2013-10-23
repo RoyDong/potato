@@ -17,30 +17,28 @@ type Html struct {
  * LoadTemplates loads all html files under dir
  */
 func (h *Html) LoadTemplates(dir string) {
-    d, e := os.Open(dir)
-    if e != nil {
-        log.Fatal("templates not found:", e)
-    }
-
-    infos, e := d.Readdir(-1)
-    if e != nil {
-        log.Fatal("reading templates error:", e)
-    }
-
-    for _,info := range infos {
-        log.Println(info.Name(), info.IsDir())
-    }
+    h.files = make(map[string]os.FileInfo)
+    h.LoadDirFiles("template")
+    log.Println(h.files)
 }
 
-func (h *Html) LoadAllFiles(d os.File) {
-    infos, e := d.Readdir(-1)
+func (h *Html) LoadDirFiles(name string) {
+    dir, e := os.Open("./" + name)
     if e != nil {
-        log.Fatal("reading templates error:", e)
+        return
     }
 
-    for _,info := range infos {
-        if strings.HasSuffix(info.Name(), ".html") {
+    dinfo, e := dir.Readdir(-1)
+    if e != nil {
+        return
+    }
 
+    for _,info := range dinfo {
+        if info.IsDir() {
+            h.LoadDirFiles(name + "/" + info.Name())
+        } else if strings.HasSuffix(info.Name(), ".html") {
+            key := name + "/" + strings.TrimRight(info.Name(), ".html")
+            h.files[key] = info
         }
     }
 }
