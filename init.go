@@ -16,10 +16,11 @@ var (
     Port    = 80
     Timeout = 30
 
-    Dir     = &AppDirStruct{
+    Dir     = &AppDir{
         Config:     "./config/",
         Controller: "./controller/",
         Model:      "./model/",
+        Template:   "./template/",
         Static:     "./static/",
         Log:        "./log/",
     }
@@ -34,16 +35,17 @@ var (
         Action: "ServerError",
     }
 
+    H *Html
     R *Router
     S *http.Server
-
-    Logger *log.Logger
+    L *log.Logger
 )
 
-type AppDirStruct struct {
+type AppDir struct {
     Config string
     Controller string
     Model string
+    Template string
     Static string
     Log string
 }
@@ -103,17 +105,28 @@ func Init() {
         log.Fatal("Error init log file:", e)
     }
 
-    Logger = log.New(file, "", log.LstdFlags)
+    L = log.New(file, "", log.LstdFlags)
 
-    //initialize router and load routes config file
+    //initialize html templates
+    L.Println("loading templates...")
+    H = new(Html)
+    H.LoadTemplates(Dir.Template)
+
+    //initialize router
+    L.Println("loading routes...")
     R = NewRouter()
     R.InitConfig(Dir.Config + "routes.yml")
+}
 
-    //initialize server
+func Serve() {
+
+    //create server
     S = &http.Server{
         Addr: fmt.Sprintf(":%d", Port),
         Handler: R,
     }
 
-    Logger.Println(fmt.Sprintf("Server ready: %s:%d", Host, Port))
+    L.Println("server started")
+    L.Println(S.ListenAndServe())
 }
+

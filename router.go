@@ -18,9 +18,11 @@ type Route struct {
     Regexp *regexp.Regexp
 }
 
-//routes are grouped by their prefixes
-//when routing a url, first match the prefixes
-//then match the patterns of each route
+/**
+ * routes are grouped by their prefixes
+ * when routing a url, first match the prefixes
+ * then match the patterns of each route
+ */
 type PrefixedRoutes struct {
     Prefix string `yaml:"prefix"`
     Regexp *regexp.Regexp
@@ -53,7 +55,7 @@ func (rt *Router) RegController(c interface{}) {
     }
 }
 
-func (rt *Router) Init(cs []interface{}) {
+func (rt *Router) RegControllers(cs []interface{}) {
     for _,c := range cs {
         rt.RegController(c)
     }
@@ -105,7 +107,7 @@ func (rt *Router) Route(path string) (*Route, map[string]string) {
             for _,r := range pr.Routes {
                 if p := r.Regexp.FindStringSubmatch(m[1]); len(p) > 0 {
 
-                    //set params for matched route
+                    //get params for matched route
                     params := make(map[string]string, len(p) - 1)
                     for i, v := range p[1:] {
                         params[r.Keys[i]] = v
@@ -117,11 +119,22 @@ func (rt *Router) Route(path string) (*Route, map[string]string) {
         }
     }
 
-    Logger.Println(path, "no route found")
     return NotFoundRoute, nil
 }
 
 func (rt *Router) RunAction(r *Route, rq *Request, rp *Response) {
+
+    //handler panics
+    defer func () {
+        if e := recover(); e != nil {
+            if err, ok := e.(*Error); ok {
+                rp.Write([]byte(err.String()))
+            } else {
+                L.Println("Unhandle error", e)
+            }
+        }
+    }()
+
     if t, has := rt.controllers[r.Controller]; has {
 
         //initialize controller
@@ -131,13 +144,11 @@ func (rt *Router) RunAction(r *Route, rq *Request, rp *Response) {
 
         //if action not found check the NotFound method
         action := controller.MethodByName(r.Action)
-        if !action.IsValid() && r.Action != NotFoundRoute.Action {
-            Logger.Println(r.Action, "action not found")
-
+        if !action.IsValid() {
             if nf := controller.MethodByName(NotFoundRoute.Action); nf.IsValid() {
                 action = nf
             } else {
-                goto NF
+                Panic(http.StatusNotFound, "page not found")
             }
         }
 
@@ -147,10 +158,8 @@ func (rt *Router) RunAction(r *Route, rq *Request, rp *Response) {
         }
 
         action.Call(nil)
-        return
+    } else {
+        Panic(http.StatusNotFound, "page not found")
     }
-
-    NF: http.NotFound(rp.ResponseWriter, rq.Request)
 }
-
 

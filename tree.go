@@ -8,10 +8,15 @@ type Tree struct {
     Data map[interface{}]interface{}
 }
 
+/**
+ * find finds target data on the tree through provided nodes
+ */
 func (t *Tree) find(nodes []string) (map[interface{}]interface{}, bool) {
     var ok bool
     data := t.Data
     for _,n := range nodes {
+
+        //if any node is not exists return
         if data, ok = data[n].(map[interface{}]interface{}); !ok {
             return nil, false
         }
@@ -20,20 +25,28 @@ func (t *Tree) find(nodes []string) (map[interface{}]interface{}, bool) {
     return data, true
 }
 
-func (t *Tree) Node(path string) (*Tree, bool) {
-    if data, ok := t.find(strings.Split(path, ".")); ok {
-        return &Tree{data}, true
-    }
-
-    return nil, false
-}
-
+/**
+ * Value returns the data found by path
+ * path is a string with node names divided by dot(.)
+ */
 func (t *Tree) Value(path string) (interface{}, bool) {
     nodes := strings.Split(path , ".")
     l := len(nodes) - 1
     if data, ok := t.find(nodes[:l]); ok {
         v, has := data[nodes[l]]
         return v, has
+    }
+
+    return nil, false
+}
+
+/**
+ * Sub returns a *Tree object stores the data found by path
+ * the data type must be map[interface{}]interface{}
+ */
+func (t *Tree) Sub(path string) (*Tree, bool) {
+    if data, ok := t.find(strings.Split(path, ".")); ok {
+        return &Tree{data}, true
     }
 
     return nil, false
