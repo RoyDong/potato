@@ -50,62 +50,50 @@ type AppDirStruct struct {
 
 func Init() {
     //initialize config
-    var c map[interface{}]interface{}
-    if e := LoadYaml(&c, Dir.Config + "config.yml"); e != nil {
+    config := new(Tree)
+    if e := LoadYaml(&config.Data, Dir.Config + "config.yml"); e != nil {
         log.Fatal(e)
     }
 
-
-    if name, ok := c["name"].(string); ok {
+    if name, ok := config.String("name"); ok {
         AppName = name
     }
 
-    if env, ok := c["env"].(string); ok {
+    if env, ok := config.String("env"); ok {
         Env = env
     }
 
-    if http, ok := c["http"].(map[interface{}]interface{}); ok {
-        if host, ok := http["host"].(string); ok {
-            Host = host
-        }
-
-        if port, ok := http["port"].(int); ok {
-            Port = port
-        }
-
-        if t, ok := http["timeout"].(int); ok {
-            Timeout = t
-        }
+    //http config
+    if v, ok := config.String("http.host"); ok {
+        Host = v
+    }
+    if v, ok := config.Int("http.port"); ok {
+        Port = v
+    }
+    if v, ok := config.Int("http.timeout"); ok {
+        Timeout = v
     }
 
-    if dir, ok := c["static_dir"].(string); ok {
+    //dir config
+    if dir, ok := config.String("static_dir"); ok {
         Dir.Static = dir
     }
-
-    if dir, ok := c["log_dir"].(string); ok {
-        Dir.Static = dir
+    if dir, ok := config.String("log_dir"); ok {
+        Dir.Log = dir
     }
 
-    if eh, ok := c["error_handler"].(map[interface{}]interface{}); ok {
-        if nf, ok := eh["not_found"].(map[interface{}]interface{}); ok {
-            if v, ok := nf["controller"].(string); ok {
-                NotFoundRoute.Controller = v
-            }
-
-            if v, ok := nf["action"].(string); ok {
-                NotFoundRoute.Action= v
-            }
-        }
-
-        if se, ok := eh["server_error"].(map[interface{}]interface{}); ok {
-            if v, ok := se["controller"].(string); ok {
-                ServerErrorRoute.Controller = v
-            }
-
-            if v, ok := se["action"].(string); ok {
-                ServerErrorRoute.Action = v
-            }
-        }
+    //error handlers
+    if v, ok := config.String("error_handler.not_found.controller"); ok {
+        NotFoundRoute.Controller = v
+    }
+    if v, ok := config.String("error_handler.not_found.action"); ok {
+        NotFoundRoute.Action = v
+    }
+    if v, ok := config.String("error_handler.server_error.controller"); ok {
+        ServerErrorRoute.Controller = v
+    }
+    if v, ok := config.String("error_handler.server_error.action"); ok {
+        ServerErrorRoute.Action = v
     }
 
     //initialize logger
