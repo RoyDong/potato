@@ -7,4 +7,13 @@ import (
 
 type Response struct {
     http.ResponseWriter
+    body []byte
+}
+
+func (r *Response) SetBody(b []byte) {
+    r.body = b
+}
+
+func (r *Response) Send() {
+    r.Write(r.body)
 }

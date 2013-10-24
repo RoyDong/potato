@@ -88,8 +88,9 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     } else {
         route, params := rt.Route(r.URL.Path);
         rq := &Request{r, params}
-        rp := &Response{w}
+        rp := &Response{w, nil}
         rt.RunAction(route, rq, rp)
+        rp.Send()
     }
 }
 
@@ -124,23 +125,15 @@ func (rt *Router) Route(path string) (*Route, map[string]string) {
 
 func (rt *Router) RunAction(r *Route, rq *Request, rp *Response) {
 
-    //handler panics
+    //handle panics
     defer func () {
         if e := recover(); e != nil {
-            if err, ok := e.(*Error); ok {
-                rp.Write([]byte(err.String()))
-            } else {
-                L.Println("Unhandle error", e)
-            }
+            rt.handleError(e, rq, rp)
         }
     }()
 
     if t, has := rt.controllers[r.Controller]; has {
-
-        //initialize controller
-        controller := reflect.New(t)
-        controller.Elem().FieldByName("Controller").
-                Set(reflect.ValueOf(&Controller{rq, rp}))
+        controller := rt.controller(t, rq, rp)
 
         //if action not found check the NotFound method
         action := controller.MethodByName(r.Action)
@@ -163,3 +156,29 @@ func (rt *Router) RunAction(r *Route, rq *Request, rp *Response) {
     }
 }
 
+//initialize controller
+func (rt *Router) controller(t reflect.Type, rq *Request, rp *Response) reflect.Value {
+    controller := reflect.New(t)
+    controller.Elem().FieldByName("Controller").
+            Set(reflect.ValueOf(&Controller{rq, rp}))
+
+    return controller
+}
+
+func (rt *Router) handleError(e interface{}, rq *Request, rp *Response) {
+    if err, ok := e.(*Error); ok {
+        if t, has := rt.controllers[ServerErrorRoute.Controller]; has {
+            controller := rt.controller(t, rq, rp)
+            if action := controller.MethodByName(ServerErrorRoute.Action);
+                    action.IsValid() {
+
+                action.Call([]reflect.Value{reflect.ValueOf(err)})
+                return
+            }
+        }
+
+        rp.SetBody([]byte(err.String()))
+    }
+
+    L.Println(e)
+}

@@ -2,7 +2,6 @@ package potato
 
 import (
     "os"
-    "log"
     "strings"
     _"html/template"
 )
@@ -18,26 +17,28 @@ type Html struct {
  */
 func (h *Html) LoadTemplates(dir string) {
     h.files = make(map[string]os.FileInfo)
-    h.LoadDirFiles("template")
-    log.Println(h.files)
+    h.LoadHtmlFiles(dir)
 }
 
-func (h *Html) LoadDirFiles(name string) {
-    dir, e := os.Open("./" + name)
+/**
+ * LoadHtmlFiles loads all *.html files under the dir recursively
+ */
+func (h *Html) LoadHtmlFiles(dir string) {
+    d, e := os.Open(dir)
     if e != nil {
         return
     }
 
-    dinfo, e := dir.Readdir(-1)
+    dinfo, e := d.Readdir(-1)
     if e != nil {
         return
     }
 
     for _,info := range dinfo {
         if info.IsDir() {
-            h.LoadDirFiles(name + "/" + info.Name())
+            h.LoadHtmlFiles(dir + info.Name() + "/")
         } else if strings.HasSuffix(info.Name(), ".html") {
-            key := name + "/" + strings.TrimRight(info.Name(), ".html")
+            key := dir + strings.TrimRight(info.Name(), ".html")
             h.files[key] = info
         }
     }

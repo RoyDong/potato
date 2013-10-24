@@ -4,6 +4,7 @@ import (
     "os"
     "log"
     "fmt"
+    "strings"
     "net/http"
 )
 
@@ -17,12 +18,12 @@ var (
     Timeout = 30
 
     Dir     = &AppDir{
-        Config:     "./config/",
-        Controller: "./controller/",
-        Model:      "./model/",
-        Template:   "./template/",
-        Static:     "./static/",
-        Log:        "./log/",
+        Config:     "config/",
+        Controller: "controller/",
+        Model:      "model/",
+        Template:   "template/",
+        Static:     "static/",
+        Log:        "log/",
     }
 
     NotFoundRoute = &Route{
@@ -78,10 +79,14 @@ func Init() {
 
     //dir config
     if dir, ok := config.String("static_dir"); ok {
-        Dir.Static = dir
+        dir = strings.TrimLeft(dir, "./")
+        dir = strings.TrimRight(dir, "/")
+        Dir.Static = dir + "/"
     }
     if dir, ok := config.String("log_dir"); ok {
-        Dir.Log = dir
+        dir = strings.TrimLeft(dir, "./")
+        dir = strings.TrimRight(dir, "/")
+        Dir.Log = dir + "/"
     }
 
     //error handlers
@@ -108,12 +113,10 @@ func Init() {
     L = log.New(file, "", log.LstdFlags)
 
     //initialize html templates
-    L.Println("loading templates...")
     H = new(Html)
     H.LoadTemplates(Dir.Template)
 
     //initialize router
-    L.Println("loading routes...")
     R = NewRouter()
     R.InitConfig(Dir.Config + "routes.yml")
 }
@@ -126,7 +129,6 @@ func Serve() {
         Handler: R,
     }
 
-    L.Println("server started")
     L.Println(S.ListenAndServe())
 }
 
