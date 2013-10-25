@@ -31,7 +31,7 @@ type PrefixedRoutes struct {
 
 type Router struct {
 
-    //all the grouped routes
+    //all grouped routes
     routes []*PrefixedRoutes
     controllers map[string]reflect.Type
 }

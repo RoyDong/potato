@@ -25,6 +25,41 @@ func (t *Tree) find(nodes []string) (map[interface{}]interface{}, bool) {
     return data, true
 }
 
+func (t *Tree) Mount(path string, v interface{}, replace bool) bool {
+    var i int
+    var n string
+    nodes := strings.Split(path , ".")
+    last := len(nodes) - 1
+    data := t.Data
+
+    //get to the last existing node on the tree of the path
+    for i, n = range nodes[:last] {
+        if d, ok := data[n].(map[interface{}]interface{}); ok {
+            data = d
+        } else {
+            break
+        }
+    }
+
+    //the next node name is allready a value and replace is false
+    if _,has := data[n]; has && !replace {
+        return false
+    }
+
+    //if the loop upove is not complete, ended by break
+    //create the rest nodes of the path
+    if i < last - 1 {
+        for _,n = range nodes[i:last] {
+            d := make(map[interface{}]interface{}, 1)
+            data[n] = d
+            data = d
+        }
+    }
+
+    data[nodes[last]] = v
+    return true
+}
+
 /**
  * Value returns the data found by path
  * path is a string with node names divided by dot(.)
@@ -41,10 +76,10 @@ func (t *Tree) Value(path string) (interface{}, bool) {
 }
 
 /**
- * Sub returns a *Tree object stores the data found by path
+ * Cut returns a *Tree object stores the data found by path
  * the data type must be map[interface{}]interface{}
  */
-func (t *Tree) Sub(path string) (*Tree, bool) {
+func (t *Tree) Cut(path string) (*Tree, bool) {
     if data, ok := t.find(strings.Split(path, ".")); ok {
         return &Tree{data}, true
     }
