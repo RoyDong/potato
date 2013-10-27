@@ -5,19 +5,17 @@ import (
 )
 
 type Tree struct {
-    Data map[interface{}]interface{}
+    Data map[string]interface{}
 }
 
 /**
- * find finds target data on the tree through provided nodes
+ * find finds target data on the tree by provided nodes
  */
-func (t *Tree) find(nodes []string) (map[interface{}]interface{}, bool) {
+func (t *Tree) find(nodes []string) (map[string]interface{}, bool) {
     var ok bool
     data := t.Data
     for _,n := range nodes {
-
-        //if any node is not exists return
-        if data, ok = data[n].(map[interface{}]interface{}); !ok {
+        if data, ok = data[n].(map[string]interface{}); !ok {
             return nil, false
         }
     }
@@ -25,7 +23,11 @@ func (t *Tree) find(nodes []string) (map[interface{}]interface{}, bool) {
     return data, true
 }
 
-func (t *Tree) Mount(path string, v interface{}, replace bool) bool {
+/**
+ * Mount adds new value on the tree
+ * f means force to replace old value if there is any
+ */
+func (t *Tree) Mount(path string, v interface{}, f bool) bool {
     var i int
     var n string
     nodes := strings.Split(path , ".")
@@ -34,26 +36,30 @@ func (t *Tree) Mount(path string, v interface{}, replace bool) bool {
 
     //get to the last existing node on the tree of the path
     for i, n = range nodes[:last] {
-        if d, ok := data[n].(map[interface{}]interface{}); ok {
+        if d, ok := data[n].(map[string]interface{}); ok {
             data = d
         } else {
             break
         }
     }
 
-    //the next node name is allready a value and replace is false
-    if _,has := data[n]; has && !replace {
+    //the next node is a value and f is false
+    if _,has := data[n]; has && !f {
         return false
     }
 
-    //if the loop upove is not complete, ended by break
-    //create the rest nodes of the path
+    //if the loop upove is ended by break
+    //then create the rest nodes of the path
     if i < last - 1 {
         for _,n = range nodes[i:last] {
-            d := make(map[interface{}]interface{}, 1)
+            d := make(map[string]interface{}, 1)
             data[n] = d
             data = d
         }
+    }
+
+    if t, ok := v.(*Tree); ok {
+        v = t.Data
     }
 
     data[nodes[last]] = v
@@ -76,10 +82,9 @@ func (t *Tree) Value(path string) (interface{}, bool) {
 }
 
 /**
- * Cut returns a *Tree object stores the data found by path
- * the data type must be map[interface{}]interface{}
+ * Sub returns a *Tree object stores the data found by path
  */
-func (t *Tree) Cut(path string) (*Tree, bool) {
+func (t *Tree) Sub(path string) (*Tree, bool) {
     if data, ok := t.find(strings.Split(path, ".")); ok {
         return &Tree{data}, true
     }
@@ -122,3 +127,4 @@ func (t *Tree) String(path string) (string, bool) {
 
     return "", false
 }
+

@@ -2,21 +2,26 @@ package potato
 
 import (
     "os"
+    "log"
     "strings"
-    _"html/template"
+    "html/template"
 )
 
 
+var MaxFileSize = int64(2 * 1024 * 1024)
+
+type Template struct {
+    *template.Template
+}
+
 type Html struct {
-    templates map[string][]byte
-    files map[string]os.FileInfo
+    templates map[string]*Template
 }
 
 /**
  * LoadTemplates loads all html files under dir
  */
 func (h *Html) LoadTemplates(dir string) {
-    h.files = make(map[string]os.FileInfo)
     h.LoadHtmlFiles(dir)
 }
 
@@ -35,11 +40,19 @@ func (h *Html) LoadHtmlFiles(dir string) {
     }
 
     for _,info := range dinfo {
+        uri := dir + info.Name()
         if info.IsDir() {
-            h.LoadHtmlFiles(dir + info.Name() + "/")
-        } else if strings.HasSuffix(info.Name(), ".html") {
-            key := dir + strings.TrimRight(info.Name(), ".html")
-            h.files[key] = info
+            h.LoadHtmlFiles(uri + "/")
+        } else if info.Size() <= MaxFileSize &&
+                strings.HasSuffix(info.Name(), ".html") {
+            if file, e := os.Open(uri); e == nil {
+                str := make([]byte, info.Size())
+                if _,e := file.Read(str); e == nil {
+                    key := dir + strings.TrimRight(info.Name(), ".html")
+
+                    log.Println(key, string(str))
+                }
+            }
         }
     }
 }
