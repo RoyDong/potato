@@ -86,6 +86,10 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     //dynamic requests
     } else {
+        if Env == "dev" {
+            H.LoadTemplates(Dir.Template)
+        }
+
         route, params := rt.Route(r.URL.Path);
         rq := &Request{r, params}
         rp := &Response{w, nil}

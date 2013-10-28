@@ -3,21 +3,31 @@ package potato
 import (
     "os"
     "strings"
-    _"html/template"
+    "html/template"
 )
 
 
+var (
+    //2m
+    MaxFileSize = int64(2 * 1024 * 1024)
+)
+
 type Html struct {
-    templates map[string][]byte
-    files map[string]os.FileInfo
+    template *template.Template
+    root string
 }
 
 /**
  * LoadTemplates loads all html files under dir
  */
 func (h *Html) LoadTemplates(dir string) {
-    h.files = make(map[string]os.FileInfo)
-    h.LoadHtmlFiles(dir)
+    h.template = template.New("/")
+    h.root = dir
+    h.LoadHtmlFiles(h.root)
+}
+
+func (h *Html) Template(name string) *template.Template {
+    return h.template.Lookup(name)
 }
 
 /**
@@ -25,21 +35,32 @@ func (h *Html) LoadTemplates(dir string) {
  */
 func (h *Html) LoadHtmlFiles(dir string) {
     d, e := os.Open(dir)
-    if e != nil {
-        return
-    }
+    if e != nil { return }
 
     dinfo, e := d.Readdir(-1)
-    if e != nil {
-        return
-    }
+    if e != nil { return }
 
     for _,info := range dinfo {
+        uri := dir + info.Name()
         if info.IsDir() {
-            h.LoadHtmlFiles(dir + info.Name() + "/")
-        } else if strings.HasSuffix(info.Name(), ".html") {
-            key := dir + strings.TrimRight(info.Name(), ".html")
-            h.files[key] = info
+            h.LoadHtmlFiles(uri + "/")
+
+        //filt html files
+        } else if info.Size() <= MaxFileSize &&
+                strings.HasSuffix(info.Name(), ".html") {
+
+            //load file
+            if f, e := os.Open(uri); e == nil {
+                str := make([]byte, info.Size())
+                if _,e := f.Read(str); e == nil {
+
+                    //init template
+                    key := strings.TrimPrefix(strings.TrimSuffix(uri, ".html"), h.root)
+                    t := h.template.New(key)
+                    t.Parse(string(str))
+                }
+            }
         }
     }
 }
+
