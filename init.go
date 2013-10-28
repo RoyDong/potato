@@ -79,13 +79,11 @@ func Init() {
 
     //dir config
     if dir, ok := config.String("static_dir"); ok {
-        dir = strings.TrimLeft(dir, "./")
-        dir = strings.TrimRight(dir, "/")
+        dir = strings.Trim(dir, "./")
         Dir.Static = dir + "/"
     }
     if dir, ok := config.String("log_dir"); ok {
-        dir = strings.TrimLeft(dir, "./")
-        dir = strings.TrimRight(dir, "/")
+        dir = strings.Trim(dir, "./")
         Dir.Log = dir + "/"
     }
 
