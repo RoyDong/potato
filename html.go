@@ -46,7 +46,7 @@ func (h *Html) LoadHtmlFiles(dir string) {
         if info.IsDir() {
             h.LoadHtmlFiles(uri + "/")
 
-        //filt html files
+        //check file
         } else if info.Size() <= MaxFileSize &&
                 strings.HasSuffix(info.Name(), ".html") {
 
@@ -59,6 +59,7 @@ func (h *Html) LoadHtmlFiles(dir string) {
                     key := strings.TrimPrefix(strings.TrimSuffix(uri, ".html"), h.root)
                     t := h.template.New(key)
                     t.Parse(string(str))
+                    log.Println(key)
                 }
             }
         }

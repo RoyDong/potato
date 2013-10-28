@@ -164,7 +164,7 @@ func (rt *Router) RunAction(r *Route, rq *Request, rp *Response) {
 func (rt *Router) controller(t reflect.Type, rq *Request, rp *Response) reflect.Value {
     controller := reflect.New(t)
     controller.Elem().FieldByName("Controller").
-            Set(reflect.ValueOf(&Controller{rq, rp}))
+            Set(reflect.ValueOf(NewController(rq, rp)))
 
     return controller
 }
