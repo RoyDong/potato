@@ -2,7 +2,7 @@ package potato
 
 import (
     "os"
-    "log"
+    "bytes"
     "strings"
     "html/template"
 )
@@ -13,9 +13,11 @@ var (
     MaxFileSize = int64(2 * 1024 * 1024)
 )
 
+
 type Html struct {
     template *template.Template
     root string
+    funcs template.FuncMap
 }
 
 /**
@@ -24,11 +26,24 @@ type Html struct {
 func (h *Html) LoadTemplates(dir string) {
     h.template = template.New("/")
     h.root = dir
+    h.funcs = template.FuncMap{
+        "include": h.Include,
+    }
     h.LoadHtmlFiles(h.root)
 }
 
 func (h *Html) Template(name string) *template.Template {
     return h.template.Lookup(name)
+}
+
+func (h *Html) Include(name string, data interface{}) string {
+    if t := h.template.Lookup(name); t != nil {
+        buffer := new(bytes.Buffer)
+        t.Execute(buffer, data)
+        return string(buffer.Bytes())
+    }
+
+    panic(name + " template not found")
 }
 
 /**
@@ -57,12 +72,9 @@ func (h *Html) LoadHtmlFiles(dir string) {
 
                     //init template
                     key := strings.TrimPrefix(strings.TrimSuffix(uri, ".html"), h.root)
-                    t := h.template.New(key)
-                    t.Parse(string(str))
-                    log.Println(key)
+                    h.template.New(key).Funcs(h.funcs).Parse(string(str))
                 }
             }
         }
     }
 }
-

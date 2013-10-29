@@ -20,11 +20,13 @@ func NewController(rq *Request, rp *Response) *Controller {
         Response: rp,
         Layout: "layout",
         Template: "index",
+        Title: Host,
     }
 }
 
 func (c *Controller) Render(name string, data interface{}) {
-    if t := H.Template(name); t != nil {
+    if t := H.Template(c.Layout); t != nil {
+        c.Template = name
         c.Data = data
         t.Execute(c.Response, c)
     } else {
