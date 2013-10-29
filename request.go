@@ -2,7 +2,7 @@ package potato
 
 
 import (
-    "log"
+    "time"
     "strconv"
     "net/http"
 )
@@ -11,15 +11,16 @@ type Request struct {
     *http.Request
     params map[string]string
     Session *Session
+    Cookies []*http.Cookie
 }
 
 func NewRequest(r *http.Request, p map[string]string) *Request {
     rq := &Request{
         Request: r,
         params: p,
+        Cookies: r.Cookies(),
     }
 
-    rq.InitSession()
     return rq
 }
 
@@ -55,7 +56,30 @@ func (r *Request) Get(k string) (string, bool) {
     return "", false
 }
 
-func (r *Request) InitSession() {
-    log.Println(r.Cookies())
+func (r *Request) InitSession(rp *Response) {
+    if c := r.Cookie(SessionCookieName); c != nil {
+        r.Session = sessions[c.Value]
+    }
 
+    if r.Session == nil {
+        r.Session  = NewSession(r)
+        rp.SetCookie(&http.Cookie{
+            Name: SessionCookieName,
+            Value: r.Session.Id,
+        })
+    } else {
+        t := time.Now().Unix()
+        if r.Session.LastActivity + SessionDuration < t {
+            r.Session.Clear()
+        }
+        r.Session.LastActivity = t
+    }
+}
+
+func (r *Request) Cookie(name string) *http.Cookie {
+    for _,c := range r.Cookies {
+        if c.Name == name { return c }
+    }
+
+    return nil
 }

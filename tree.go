@@ -96,6 +96,14 @@ func (t *Tree) Sub(path string) (*Tree, bool) {
     return nil, false
 }
 
+func (t *Tree) Clear() {
+    t.data = make(map[string]interface{})
+}
+
+func (t *Tree) Load(data map[string]interface{}) {
+    t.data = data
+}
+
 func (t *Tree) Int(path string) (int, bool) {
     if v, ok := t.Value(path); ok {
         i, ok := v.(int)

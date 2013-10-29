@@ -93,14 +93,7 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         route, params := rt.Route(r.URL.Path);
         request := NewRequest(r, params)
         response := &Response{w, nil}
-
-
-        c := &http.Cookie{
-            Name: SessionCookieName,
-            Value: SessionCookieName + "v",
-        }
-
-        response.SetCookie(c)
+        request.InitSession(response)
         rt.RunAction(route, request, response)
     }
 }

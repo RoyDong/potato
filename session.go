@@ -10,6 +10,7 @@ import (
 )
 
 var (
+    SessionDuration = int64(10)
     SessionCookieName = "POTATO_SESSION_ID"
     sessions = make(map[string]*Session)
 )
@@ -17,16 +18,18 @@ var (
 
 type Session struct {
     *Tree
-    id string
+    Id string
+    LastActivity int64
 }
 
 func NewSession(r *Request) *Session {
     s := &Session{
         Tree: NewTree(make(map[string]interface{})),
-        id: createSessionId(r),
+        Id: createSessionId(r),
+        LastActivity: time.Now().Unix(),
     }
 
-    sessions[s.id] = s
+    sessions[s.Id] = s
     return s
 }
 
