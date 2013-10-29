@@ -2,6 +2,7 @@ package potato
 
 
 import (
+    "log"
     "strconv"
     "net/http"
 )
@@ -9,6 +10,17 @@ import (
 type Request struct {
     *http.Request
     params map[string]string
+    Session *Session
+}
+
+func NewRequest(r *http.Request, p map[string]string) *Request {
+    rq := &Request{
+        Request: r,
+        params: p,
+    }
+
+    rq.InitSession()
+    return rq
 }
 
 func (r *Request) GetInt(k string) (int64, bool) {
@@ -43,3 +55,7 @@ func (r *Request) Get(k string) (string, bool) {
     return "", false
 }
 
+func (r *Request) InitSession() {
+    log.Println(r.Cookies())
+
+}

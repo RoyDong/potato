@@ -54,7 +54,7 @@ type AppDir struct {
 func Init() {
     //initialize config
     config := new(Tree)
-    if e := LoadYaml(&config.Data, Dir.Config + "config.yml"); e != nil {
+    if e := LoadYaml(&config.data, Dir.Config + "config.yml"); e != nil {
         log.Fatal(e)
     }
 
@@ -64,6 +64,10 @@ func Init() {
 
     if env, ok := config.String("env"); ok {
         Env = env
+    }
+
+    if v, ok := config.String("session_cookie_name"); ok {
+        SessionCookieName = v
     }
 
     //http config

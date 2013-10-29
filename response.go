@@ -17,3 +17,7 @@ func (r *Response) SetBody(b []byte) {
 func (r *Response) Send() {
     r.Write(r.body)
 }
+
+func (r *Response) SetCookie(c *http.Cookie) {
+    http.SetCookie(r, c)
+}

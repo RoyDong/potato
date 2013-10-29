@@ -5,7 +5,11 @@ import (
 )
 
 type Tree struct {
-    Data map[string]interface{}
+    data map[string]interface{}
+}
+
+func NewTree(data map[string]interface{}) *Tree {
+    return &Tree{data}
 }
 
 /**
@@ -13,7 +17,7 @@ type Tree struct {
  */
 func (t *Tree) find(nodes []string) (map[string]interface{}, bool) {
     var ok bool
-    data := t.Data
+    data := t.data
     for _,n := range nodes {
         if data, ok = data[n].(map[string]interface{}); !ok {
             return nil, false
@@ -32,7 +36,7 @@ func (t *Tree) Mount(path string, v interface{}, f bool) bool {
     var n string
     nodes := strings.Split(path , ".")
     last := len(nodes) - 1
-    data := t.Data
+    data := t.data
 
     //get to the last existing node on the tree of the path
     for i, n = range nodes[:last] {
@@ -59,7 +63,7 @@ func (t *Tree) Mount(path string, v interface{}, f bool) bool {
     }
 
     if t, ok := v.(*Tree); ok {
-        v = t.Data
+        v = t.data
     }
 
     data[nodes[last]] = v

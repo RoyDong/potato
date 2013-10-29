@@ -36,5 +36,5 @@ func (c *Controller) Render(name string, data interface{}) {
 
 func (c *Controller) RenderJson(v interface{}) {
     json,_ := json.Marshal(v)
-    c.Response.SetBody(json)
+    c.Response.Write(json)
 }
