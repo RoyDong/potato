@@ -29,7 +29,7 @@ func SessionStart() {
 
 func NewSession(r *Request, p *Response) *Session {
     s := &Session{
-        Tree: NewTree(make(map[string]interface{})),
+        Tree: NewTree(make(map[interface{}]interface{})),
         Id: createSessionId(r),
         LastActivity: time.Now().Unix(),
     }

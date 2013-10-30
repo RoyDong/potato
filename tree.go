@@ -5,21 +5,21 @@ import (
 )
 
 type Tree struct {
-    data map[string]interface{}
+    data map[interface{}]interface{}
 }
 
-func NewTree(data map[string]interface{}) *Tree {
+func NewTree(data map[interface{}]interface{}) *Tree {
     return &Tree{data}
 }
 
 /**
  * find finds target data on the tree by provided nodes
  */
-func (t *Tree) find(nodes []string) (map[string]interface{}, bool) {
+func (t *Tree) find(nodes []string) (map[interface{}]interface{}, bool) {
     var ok bool
     data := t.data
     for _,n := range nodes {
-        if data, ok = data[n].(map[string]interface{}); !ok {
+        if data, ok = data[n].(map[interface{}]interface{}); !ok {
             return nil, false
         }
     }
@@ -40,7 +40,7 @@ func (t *Tree) Mount(path string, v interface{}, f bool) bool {
 
     //get to the last existing node on the tree of the path
     for i, n = range nodes[:last] {
-        if d, ok := data[n].(map[string]interface{}); ok {
+        if d, ok := data[n].(map[interface{}]interface{}); ok {
             data = d
         } else {
             break
@@ -56,7 +56,7 @@ func (t *Tree) Mount(path string, v interface{}, f bool) bool {
     //then create the rest nodes of the path
     if i < last - 1 {
         for _,n = range nodes[i:last] {
-            d := make(map[string]interface{}, 1)
+            d := make(map[interface{}]interface{}, 1)
             data[n] = d
             data = d
         }
@@ -97,10 +97,10 @@ func (t *Tree) Sub(path string) (*Tree, bool) {
 }
 
 func (t *Tree) Clear() {
-    t.data = make(map[string]interface{})
+    t.data = make(map[interface{}]interface{})
 }
 
-func (t *Tree) Load(data map[string]interface{}) {
+func (t *Tree) Load(data map[interface{}]interface{}) {
     t.data = data
 }
 

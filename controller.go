@@ -14,13 +14,13 @@ type Controller struct {
     Data interface{}
 }
 
-func NewController(rq *Request, rp *Response) *Controller {
+func NewController(r *Request, p *Response) *Controller {
     return &Controller{
-        Request: rq,
-        Response: rp,
+        Request: r,
+        Response: p,
         Layout: "layout",
         Template: "index",
-        Title: Host,
+        Title: AppName,
     }
 }
 
