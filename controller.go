@@ -30,7 +30,7 @@ func (c *Controller) Render(name string, data interface{}) {
         c.Data = data
         t.Execute(c.Response, c)
     } else {
-        panic(name + " template not found")
+        panic("layout template not found")
     }
 }
 

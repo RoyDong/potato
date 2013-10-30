@@ -90,6 +90,10 @@ func Init() {
         dir = strings.Trim(dir, "./")
         Dir.Log = dir + "/"
     }
+    if dir, ok := config.String("session_dir"); ok {
+        dir = strings.Trim(dir, "./")
+        SessionDir = dir + "/"
+    }
 
     //error handlers
     if v, ok := config.String("error_handler.not_found.controller"); ok {
@@ -121,6 +125,8 @@ func Init() {
     //initialize router
     R = NewRouter()
     R.InitConfig(Dir.Config + "routes.yml")
+
+    SessionStart()
 }
 
 func Serve() {

@@ -2,7 +2,6 @@ package potato
 
 
 import (
-    "time"
     "strconv"
     "net/http"
 )
@@ -24,8 +23,18 @@ func NewRequest(r *http.Request, p map[string]string) *Request {
     return rq
 }
 
-func (r *Request) GetInt(k string) (int64, bool) {
-    if v, has := r.Get(k); has {
+func (r *Request) Int(k string) (int, bool) {
+    if v, has := r.String(k); has {
+        if i, e := strconv.ParseInt(v, 10, 0); e == nil {
+            return int(i), true
+        }
+    }
+
+    return 0, false
+}
+
+func (r *Request) Int64(k string) (int64, bool) {
+    if v, has := r.String(k); has {
         if i, e := strconv.ParseInt(v, 10, 64); e == nil {
             return i, true
         }
@@ -34,8 +43,8 @@ func (r *Request) GetInt(k string) (int64, bool) {
     return 0, false
 }
 
-func (r *Request) GetFloat(k string) (float64, bool) {
-    if v, has := r.Get(k); has {
+func (r *Request) Float(k string) (float64, bool) {
+    if v, has := r.String(k); has {
         if f, e := strconv.ParseFloat(v, 64); e == nil {
             return f, true
         }
@@ -44,7 +53,7 @@ func (r *Request) GetFloat(k string) (float64, bool) {
     return 0, false
 }
 
-func (r *Request) Get(k string) (string, bool) {
+func (r *Request) String(k string) (string, bool) {
     if v, has := r.params[k]; has {
         return v, true
     }
@@ -56,26 +65,9 @@ func (r *Request) Get(k string) (string, bool) {
     return "", false
 }
 
-func (r *Request) InitSession(rp *Response) {
-    if c := r.Cookie(SessionCookieName); c != nil {
-        r.Session = sessions[c.Value]
-    }
-
-    if r.Session == nil {
-        r.Session  = NewSession(r)
-        rp.SetCookie(&http.Cookie{
-            Name: SessionCookieName,
-            Value: r.Session.Id,
-        })
-    } else {
-        t := time.Now().Unix()
-        if r.Session.LastActivity + SessionDuration < t {
-            r.Session.Clear()
-        }
-        r.Session.LastActivity = t
-    }
-}
-
+/**
+ * get cookie by name
+ */
 func (r *Request) Cookie(name string) *http.Cookie {
     for _,c := range r.Cookies {
         if c.Name == name { return c }

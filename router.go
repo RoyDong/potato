@@ -93,7 +93,7 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         route, params := rt.Route(r.URL.Path);
         request := NewRequest(r, params)
         response := &Response{w, nil}
-        request.InitSession(response)
+        InitSession(request, response)
         rt.RunAction(route, request, response)
     }
 }
@@ -127,20 +127,20 @@ func (rt *Router) Route(path string) (*Route, map[string]string) {
     return NotFoundRoute, nil
 }
 
-func (rt *Router) RunAction(r *Route, rq *Request, rp *Response) {
+func (rt *Router) RunAction(route *Route, r *Request, p *Response) {
 
     //handle panics
     defer func () {
         if e := recover(); e != nil {
-            rt.handleError(e, rq, rp)
+            rt.handleError(e, r, p)
         }
     }()
 
-    if t, has := rt.controllers[r.Controller]; has {
-        controller := rt.controller(t, rq, rp)
+    if t, has := rt.controllers[route.Controller]; has {
+        controller := rt.controller(t, r, p)
 
         //if action not found check the NotFound method
-        action := controller.MethodByName(r.Action)
+        action := controller.MethodByName(route.Action)
         if !action.IsValid() {
             if nf := controller.MethodByName(NotFoundRoute.Action); nf.IsValid() {
                 action = nf
@@ -161,18 +161,18 @@ func (rt *Router) RunAction(r *Route, rq *Request, rp *Response) {
 }
 
 //initialize controller
-func (rt *Router) controller(t reflect.Type, rq *Request, rp *Response) reflect.Value {
+func (rt *Router) controller(t reflect.Type, r *Request, p *Response) reflect.Value {
     controller := reflect.New(t)
     controller.Elem().FieldByName("Controller").
-            Set(reflect.ValueOf(NewController(rq, rp)))
+            Set(reflect.ValueOf(NewController(r, p)))
 
     return controller
 }
 
-func (rt *Router) handleError(e interface{}, rq *Request, rp *Response) {
+func (rt *Router) handleError(e interface{}, r *Request, p *Response) {
     if err, ok := e.(*Error); ok {
         if t, has := rt.controllers[ServerErrorRoute.Controller]; has {
-            controller := rt.controller(t, rq, rp)
+            controller := rt.controller(t, r, p)
             if action := controller.MethodByName(ServerErrorRoute.Action);
                     action.IsValid() {
 
@@ -181,7 +181,7 @@ func (rt *Router) handleError(e interface{}, rq *Request, rp *Response) {
             }
         }
 
-        rp.SetBody([]byte(err.String()))
+        p.Write([]byte(err.String()))
     }
 
     L.Println(e)
