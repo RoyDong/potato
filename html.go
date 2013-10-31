@@ -4,7 +4,7 @@ import (
     "os"
     "bytes"
     "strings"
-    "html/template"
+    "text/template"
 )
 
 
