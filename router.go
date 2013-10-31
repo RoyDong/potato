@@ -33,6 +33,7 @@ type Router struct {
 
     //all grouped routes
     routes []*PrefixedRoutes
+
     controllers map[string]reflect.Type
 }
 
@@ -78,6 +79,7 @@ func (rt *Router) InitConfig(filename string) {
 
 
 func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+    L.Println(r.Method, r.Proto, r.Host, r.RequestURI, r.RemoteAddr)
 
     //static files, deny all dir requests
     file := Dir.Static + r.URL.Path[1:]
@@ -90,15 +92,15 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
             H.LoadTemplates(Dir.Template)
         }
 
-        route, params := rt.Route(r.URL.Path);
+        route, params := rt.route(r.URL.Path);
         request := NewRequest(r, params)
         response := &Response{w, nil}
         InitSession(request, response)
-        rt.RunAction(route, request, response)
+        rt.handle(route, request, response)
     }
 }
 
-func (rt *Router) Route(path string) (*Route, map[string]string) {
+func (rt *Router) route(path string) (*Route, map[string]string) {
 
     //case insensitive
     //make sure the patterns in routes.yml is lower case too
@@ -127,7 +129,7 @@ func (rt *Router) Route(path string) (*Route, map[string]string) {
     return NotFoundRoute, nil
 }
 
-func (rt *Router) RunAction(route *Route, r *Request, p *Response) {
+func (rt *Router) handle(route *Route, r *Request, p *Response) {
 
     //handle panics
     defer func () {

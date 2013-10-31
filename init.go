@@ -17,7 +17,7 @@ var (
     Port    = 80
     Timeout = 30
 
-    Dir     = &AppDir{
+    Dir     = &appDir{
         Config:     "config/",
         Controller: "controller/",
         Model:      "model/",
@@ -36,13 +36,14 @@ var (
         Action: "ServerError",
     }
 
-    H *Html
+    L *Logger
     R *Router
     S *http.Server
-    L *log.Logger
+    D *DB
+    H *Html
 )
 
-type AppDir struct {
+type appDir struct {
     Config string
     Controller string
     Model string
@@ -116,15 +117,36 @@ func Init() {
         log.Fatal("Error init log file:", e)
     }
 
-    L = log.New(file, "", log.LstdFlags)
-
-    //initialize html templates
-    H = new(Html)
-    H.LoadTemplates(Dir.Template)
+    L = NewLogger(file)
 
     //initialize router
     R = NewRouter()
     R.InitConfig(Dir.Config + "routes.yml")
+
+    //initialize db
+    if v, ok := config.String("sql.type"); ok {
+        DBConfig.Type = v
+    }
+    if v, ok := config.String("sql.host"); ok {
+        DBConfig.Host = v
+    }
+    if v, ok := config.Int("sql.port"); ok {
+        DBConfig.Port = v
+    }
+    if v, ok := config.String("sql.user"); ok {
+        DBConfig.User = v
+    }
+    if v, ok := config.String("sql.pass"); ok {
+        DBConfig.Pass = v
+    }
+    if v, ok := config.String("sql.dbname"); ok {
+        DBConfig.DBname = v
+    }
+    D = InitDB()
+
+    //initialize html templates
+    H = new(Html)
+    H.LoadTemplates(Dir.Template)
 
     SessionStart()
 }
