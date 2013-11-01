@@ -53,6 +53,7 @@ type appDir struct {
 }
 
 func Init() {
+    fmt.Println("Starting...")
     //initialize config
     config := new(Tree)
     if e := LoadYaml(&config.data, Dir.Config + "config.yml"); e != nil {
@@ -110,20 +111,7 @@ func Init() {
         ServerErrorRoute.Action = v
     }
 
-    //initialize logger
-    file, e := os.OpenFile(Dir.Log + Env + ".log",
-            os.O_CREATE | os.O_WRONLY | os.O_APPEND, 0666)
-    if e != nil {
-        log.Fatal("Error init log file:", e)
-    }
-
-    L = NewLogger(file)
-
-    //initialize router
-    R = NewRouter()
-    R.InitConfig(Dir.Config + "routes.yml")
-
-    //initialize db
+    //db config
     if v, ok := config.String("sql.type"); ok {
         DBConfig.Type = v
     }
@@ -142,6 +130,21 @@ func Init() {
     if v, ok := config.String("sql.dbname"); ok {
         DBConfig.DBname = v
     }
+
+    //initialize logger
+    file, e := os.OpenFile(Dir.Log + Env + ".log",
+            os.O_CREATE | os.O_WRONLY | os.O_APPEND, 0666)
+    if e != nil {
+        log.Fatal("Error init log file:", e)
+    }
+
+    L = NewLogger(file)
+
+    //initialize router
+    R = NewRouter()
+    R.InitConfig(Dir.Config + "routes.yml")
+
+    //initialize db
     D = InitDB()
 
     //initialize html templates
@@ -159,6 +162,7 @@ func Serve() {
         Handler: R,
     }
 
+    L.Println(fmt.Sprintf("http://%s:%d is now online", Host, Port))
     L.Println(S.ListenAndServe())
 }
 

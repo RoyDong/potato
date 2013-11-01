@@ -1,6 +1,7 @@
 package potato
 
 import (
+    "net/http"
     "encoding/json"
 )
 
@@ -22,6 +23,10 @@ func NewController(r *Request, p *Response) *Controller {
         Template: "index",
         Title: AppName,
     }
+}
+
+func (c *Controller) Redirect(url string) {
+    http.Redirect(c.Response, c.Request.Request, url, http.StatusFound)
 }
 
 func (c *Controller) Render(name string, data interface{}) {

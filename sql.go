@@ -48,3 +48,19 @@ func InitDB() *DB {
 
     return &DB{DB: db}
 }
+
+func (d *DB) Insert(stmt string) int64 {
+    result, e := d.Exec(stmt)
+    if e != nil {
+        L.Println(e)
+        return 0
+    }
+
+    id, e := result.LastInsertId()
+    if e!= nil {
+        L.Println(e)
+        return 0
+    }
+
+    return id
+}
