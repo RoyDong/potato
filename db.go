@@ -1,6 +1,7 @@
 package potato
 
 import (
+    "log"
     "fmt"
     "database/sql"
     _"github.com/go-sql-driver/mysql"
@@ -39,11 +40,11 @@ func InitDB() *DB {
     dsn := fmt.Sprintf("%s:%s@(%s:%d)/%s", DBConfig.User,
             DBConfig.Pass, DBConfig.Host, DBConfig.Port, DBConfig.DBname)
     if db, e = sql.Open(DBConfig.Type, dsn); e != nil {
-        L.Fatal(e)
+        log.Fatal(e)
     }
 
     if e = db.Ping(); e != nil {
-        L.Fatal(e)
+        log.Fatal(e)
     }
 
     return &DB{DB: db}

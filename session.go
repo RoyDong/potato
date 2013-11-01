@@ -12,7 +12,7 @@ import (
 
 var (
     SessionDir = "session/"
-    SessionDuration = int64(10)
+    SessionDuration = int64(1800)
     SessionCookieName = "POTATO_SESSION_ID"
     sessions = make(map[string]*Session)
 )

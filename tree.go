@@ -74,15 +74,14 @@ func (t *Tree) Mount(path string, v interface{}, f bool) bool {
  * Value returns the data found by path
  * path is a string with node names divided by dot(.)
  */
-func (t *Tree) Value(path string) (interface{}, bool) {
+func (t *Tree) Value(path string) interface{} {
     nodes := strings.Split(path , ".")
     l := len(nodes) - 1
     if data, ok := t.find(nodes[:l]); ok {
-        v, has := data[nodes[l]]
-        return v, has
+        return data[nodes[l]]
     }
 
-    return nil, false
+    return nil
 }
 
 /**
@@ -105,7 +104,7 @@ func (t *Tree) Load(data map[interface{}]interface{}) {
 }
 
 func (t *Tree) Int(path string) (int, bool) {
-    if v, ok := t.Value(path); ok {
+    if v := t.Value(path); v != nil {
         i, ok := v.(int)
         return i, ok
     }
@@ -114,7 +113,7 @@ func (t *Tree) Int(path string) (int, bool) {
 }
 
 func (t *Tree) Int64(path string) (int64, bool) {
-    if v, ok := t.Value(path); ok {
+    if v := t.Value(path); v != nil {
         i, ok := v.(int64)
         return i, ok
     }
@@ -123,7 +122,7 @@ func (t *Tree) Int64(path string) (int64, bool) {
 }
 
 func (t *Tree) Float64(path string) (float64, bool) {
-    if v, ok := t.Value(path); ok {
+    if v := t.Value(path); v != nil {
         f, ok := v.(float64)
         return f, ok
     }
@@ -132,7 +131,7 @@ func (t *Tree) Float64(path string) (float64, bool) {
 }
 
 func (t *Tree) String(path string) (string, bool) {
-    if v, ok := t.Value(path); ok {
+    if v := t.Value(path); v != nil {
         s, ok := v.(string)
         return s, ok
     }
