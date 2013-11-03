@@ -28,10 +28,10 @@ func (t *Tree) find(nodes []string) (map[interface{}]interface{}, bool) {
 }
 
 /**
- * Mount adds new value on the tree
+ * Set adds new value on the tree
  * f means force to replace old value if there is any
  */
-func (t *Tree) Mount(path string, v interface{}, f bool) bool {
+func (t *Tree) Set(path string, v interface{}, f bool) bool {
     var i int
     var n string
     nodes := strings.Split(path , ".")
