@@ -50,8 +50,8 @@ func InitDB() *DB {
     return &DB{DB: db}
 }
 
-func (d *DB) Insert(stmt string) int64 {
-    result, e := d.Exec(stmt)
+func (d *DB) Insert(stmt string, args ...interface{}) int64 {
+    result, e := d.Exec(stmt, args...)
     if e != nil {
         L.Println(e)
         return 0

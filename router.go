@@ -88,15 +88,17 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     //dynamic requests
     } else {
-        if Env == "dev" {
-            H.LoadTemplates(Dir.Template)
-        }
-
         route, params := rt.route(r.URL.Path);
         request := NewRequest(r, params)
         response := &Response{w, nil}
         InitSession(request, response)
-        rt.handle(route, request, response)
+
+        if route == nil {
+            rt.handleError(&Error{http.StatusNotFound, "page not found"},
+                    request, response)
+        } else {
+            rt.handle(route, request, response)
+        }
     }
 }
 
@@ -126,7 +128,7 @@ func (rt *Router) route(path string) (*Route, map[string]string) {
         }
     }
 
-    return NotFoundRoute, nil
+    return nil, nil
 }
 
 func (rt *Router) handle(route *Route, r *Request, p *Response) {
@@ -166,7 +168,12 @@ func (rt *Router) handle(route *Route, r *Request, p *Response) {
 func (rt *Router) controller(t reflect.Type, r *Request, p *Response) reflect.Value {
     controller := reflect.New(t)
     controller.Elem().FieldByName("Controller").
-            Set(reflect.ValueOf(NewController(r, p)))
+            Set(reflect.ValueOf(Controller{
+                    Request: r,
+                    Response: p,
+                    Layout: "layout",
+                    Template: "index",
+                    Title: AppName}))
 
     return controller
 }

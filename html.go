@@ -26,9 +26,12 @@ type Html struct {
 func (h *Html) LoadTemplates(dir string) {
     h.template = template.New("/")
     h.root = dir
+
+    //prepare funcs
     h.funcs = template.FuncMap{
         "include": h.Include,
     }
+
     h.LoadHtmlFiles(h.root)
 }
 
@@ -72,7 +75,7 @@ func (h *Html) LoadHtmlFiles(dir string) {
 
                     //init template
                     key := strings.TrimPrefix(strings.TrimSuffix(uri, ".html"), h.root)
-                    h.template.New(key).Funcs(h.funcs).Parse(string(str))
+                    template.Must(h.template.New(key).Funcs(h.funcs).Parse(string(str)))
                 }
             }
         }
