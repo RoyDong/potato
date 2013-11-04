@@ -34,7 +34,7 @@ type DB struct {
     *sql.DB
 }
 
-func InitDB() *DB {
+func NewDB() *DB {
     var db *sql.DB
     var e error
     dsn := fmt.Sprintf("%s:%s@(%s:%d)/%s", DBConfig.User,

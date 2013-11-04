@@ -40,6 +40,7 @@ var (
     R *Router
     S *http.Server
     D *DB
+    T *Template
     H *Html
 )
 
@@ -131,25 +132,23 @@ func Init() {
         DBConfig.DBname = v
     }
 
-    //initialize logger
+    //logger
     file, e := os.OpenFile(Dir.Log + Env + ".log",
             os.O_CREATE | os.O_WRONLY | os.O_APPEND, 0666)
     if e != nil {
         log.Fatal("Error init log file:", e)
     }
-
     L = NewLogger(file)
 
-    //initialize router
+    //router
     R = NewRouter()
-    R.InitConfig(Dir.Config + "routes.yml")
+    R.LoadConfig(Dir.Config + "routes.yml")
 
-    //initialize db
-    D = InitDB()
+    //db
+    D = NewDB()
 
-    //initialize html templates
-    H = new(Html)
-    H.LoadTemplates(Dir.Template)
+    //template
+    T = NewTemplate(Dir.Template)
 
     SessionStart()
 }

@@ -44,25 +44,21 @@ func NewRouter() *Router {
 }
 
 /**
- * RegController register controller on router
+ * Controllers register controllers on router
  */
-func (rt *Router) RegController(c interface{}) {
-    elem := reflect.ValueOf(c).Elem()
-
-    //Controller must embeded from *potato.Controller
-    if elem.FieldByName("Controller").CanSet() {
-        t := elem.Type()
-        rt.controllers[t.Name()] = t
-    }
-}
-
-func (rt *Router) RegControllers(cs []interface{}) {
+func (rt *Router) Controllers(cs []interface{}) {
     for _,c := range cs {
-        rt.RegController(c)
+        elem := reflect.ValueOf(c).Elem()
+
+        //Controller must embeded from *potato.Controller
+        if elem.FieldByName("Controller").CanSet() {
+            t := elem.Type()
+            rt.controllers[t.Name()] = t
+        }
     }
 }
 
-func (rt *Router) InitConfig(filename string) {
+func (rt *Router) LoadConfig(filename string) {
     if e := LoadYaml(&rt.routes, filename); e != nil {
         log.Fatal(e)
     }

@@ -14,33 +14,25 @@ var (
 )
 
 
-type Html struct {
-    template *template.Template
-    root string
+type Template struct {
+    root *template.Template
+    dir string
     funcs template.FuncMap
 }
 
-/**
- * LoadTemplates loads all html files under dir
- */
-func (h *Html) LoadTemplates(dir string) {
-    h.template = template.New("/")
-    h.root = dir
-
-    //prepare funcs
-    h.funcs = template.FuncMap{
-        "include": h.Include,
+func NewTemplate(dir string) *Template {
+    return &Template{
+        root: template.New("/"),
+        dir: dir,
     }
-
-    h.LoadHtmlFiles(h.root)
 }
 
-func (h *Html) Template(name string) *template.Template {
-    return h.template.Lookup(name)
+func (h *Template) Template(name string) *template.Template {
+    return h.root.Lookup(name)
 }
 
-func (h *Html) Include(name string, data interface{}) string {
-    if t := h.template.Lookup(name); t != nil {
+func (h *Template) Include(name string, data interface{}) string {
+    if t := h.root.Lookup(name); t != nil {
         buffer := new(bytes.Buffer)
         t.Execute(buffer, data)
         return string(buffer.Bytes())
@@ -49,10 +41,22 @@ func (h *Html) Include(name string, data interface{}) string {
     panic(name + " template not found")
 }
 
+func (h *Template) Funcs(funcs map[string]interface{}) {
+    h.funcs = template.FuncMap{
+        "include": h.Include,
+    }
+
+    for k, f := range funcs {
+        h.funcs[k] = f
+    }
+
+    h.loadTemplateFiles(h.dir)
+}
+
 /**
- * LoadHtmlFiles loads all *.html files under the dir recursively
+ * loadTemplateFiles loads all *.html files under the dir recursively
  */
-func (h *Html) LoadHtmlFiles(dir string) {
+func (h *Template) loadTemplateFiles(dir string) {
     d, e := os.Open(dir)
     if e != nil { return }
 
@@ -62,7 +66,7 @@ func (h *Html) LoadHtmlFiles(dir string) {
     for _,info := range dinfo {
         uri := dir + info.Name()
         if info.IsDir() {
-            h.LoadHtmlFiles(uri + "/")
+            h.loadTemplateFiles(uri + "/")
 
         //check file
         } else if info.Size() <= MaxFileSize &&
@@ -74,10 +78,17 @@ func (h *Html) LoadHtmlFiles(dir string) {
                 if _,e := f.Read(str); e == nil {
 
                     //init template
-                    key := strings.TrimPrefix(strings.TrimSuffix(uri, ".html"), h.root)
-                    template.Must(h.template.New(key).Funcs(h.funcs).Parse(string(str)))
+                    key := strings.TrimPrefix(strings.TrimSuffix(uri, ".html"), h.dir)
+                    template.Must(h.root.New(key).Funcs(h.funcs).Parse(string(str)))
                 }
             }
         }
     }
 }
+
+type Html struct {
+    Js, Css []string
+    Title, Content string
+}
+
+

@@ -30,7 +30,7 @@ func (c *Controller) Redirect(url string) {
 }
 
 func (c *Controller) Render(name string, data interface{}) {
-    if t := H.Template(c.Layout); t != nil {
+    if t := T.Template(c.Layout); t != nil {
         c.Template = name
         c.Data = data
         t.Execute(c.Response, c)

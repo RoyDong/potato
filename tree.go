@@ -8,10 +8,6 @@ type Tree struct {
     data map[interface{}]interface{}
 }
 
-func NewTree(data map[interface{}]interface{}) *Tree {
-    return &Tree{data}
-}
-
 /**
  * find finds target data on the tree by provided nodes
  */

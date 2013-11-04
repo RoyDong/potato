@@ -18,9 +18,9 @@ var (
 )
 
 type Session struct {
-    *Tree
+    Tree
     Id string
-    LastActivity int64
+    LastActivity time.Time
 }
 
 func SessionStart() {
@@ -29,14 +29,14 @@ func SessionStart() {
 
 func NewSession(r *Request, p *Response) *Session {
     s := &Session{
-        Tree: NewTree(make(map[interface{}]interface{})),
+        Tree: Tree{make(map[interface{}]interface{})},
         Id: createSessionId(r),
-        LastActivity: time.Now().Unix(),
+        LastActivity: time.Now(),
     }
 
     sessions[s.Id] = s
 
-    //set id to cookie
+    //set id in cookie
     p.SetCookie(&http.Cookie{
         Name: SessionCookieName,
         Value: s.Id,
@@ -57,17 +57,16 @@ func InitSession(r *Request, p *Response) {
     if r.Session == nil {
         r.Session  = NewSession(r, p)
     } else {
-        t := time.Now().Unix()
+        t := time.Now()
 
         //check session expire time
-        if r.Session.LastActivity + SessionDuration < t {
+        if r.Session.LastActivity.Unix() + SessionDuration < t.Unix() {
             r.Session.Clear()
         }
 
         r.Session.LastActivity = t
     }
 }
-
 
 func createSessionId(r *Request) string {
     rnd := make([]byte, 24)
@@ -88,7 +87,7 @@ func checkSessionExpire() {
     for now := range time.Tick(time.Minute) {
         t := now.Unix()
         for k, s := range sessions {
-            if s.LastActivity + SessionDuration < t {
+            if s.LastActivity.Unix() + SessionDuration < t {
                 s.Clear()
                 delete(sessions, k)
             }
