@@ -7,32 +7,36 @@ import (
     "text/template"
 )
 
-
 var (
     //2m
     MaxFileSize = int64(2 * 1024 * 1024)
 )
 
-
-type Template struct {
+type Html struct {
     root *template.Template
     dir string
     funcs template.FuncMap
 }
 
-func NewTemplate(dir string) *Template {
-    return &Template{
+func NewHtml(dir string) *Html {
+    return &Html{
         root: template.New("/"),
         dir: dir,
     }
 }
 
-func (h *Template) Template(name string) *template.Template {
+func (h *Html) Template(name string) *template.Template {
     return h.root.Lookup(name)
 }
 
-func (h *Template) Include(name string, data interface{}) string {
+func (h *Html) Include(args ...interface{}) string {
+    name := args[0].(string)
     if t := h.root.Lookup(name); t != nil {
+        var data interface{}
+        if len(args) >= 2 {
+            data = args[1]
+        }
+
         buffer := new(bytes.Buffer)
         t.Execute(buffer, data)
         return string(buffer.Bytes())
@@ -41,22 +45,28 @@ func (h *Template) Include(name string, data interface{}) string {
     panic(name + " template not found")
 }
 
-func (h *Template) Funcs(funcs map[string]interface{}) {
+func (h *Html) Defined(name string) bool {
+    return h.root.Lookup(name) != nil
+}
+
+func (h *Html) Funcs(funcs map[string]interface{}) {
     h.funcs = template.FuncMap{
         "include": h.Include,
+        "defined": h.Defined,
     }
 
     for k, f := range funcs {
         h.funcs[k] = f
     }
 
+    h.root.Funcs(h.funcs)
     h.loadTemplateFiles(h.dir)
 }
 
 /**
  * loadTemplateFiles loads all *.html files under the dir recursively
  */
-func (h *Template) loadTemplateFiles(dir string) {
+func (h *Html) loadTemplateFiles(dir string) {
     d, e := os.Open(dir)
     if e != nil { return }
 
@@ -74,21 +84,19 @@ func (h *Template) loadTemplateFiles(dir string) {
 
             //load file
             if f, e := os.Open(uri); e == nil {
-                str := make([]byte, info.Size())
-                if _,e := f.Read(str); e == nil {
+                txt := make([]byte, info.Size())
+                if _,e := f.Read(txt); e == nil {
 
                     //init template
-                    key := strings.TrimPrefix(strings.TrimSuffix(uri, ".html"), h.dir)
-                    template.Must(h.root.New(key).Funcs(h.funcs).Parse(string(str)))
+                    key := strings.TrimPrefix(
+                            strings.TrimSuffix(uri, ".html"), h.dir)
+                    template.Must(h.root.New(key).Parse(string(txt)))
                 }
+
+                f.Close()
             }
         }
     }
+
+    d.Close()
 }
-
-type Html struct {
-    Js, Css []string
-    Title, Content string
-}
-
-

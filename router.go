@@ -86,7 +86,7 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     } else {
         route, params := rt.route(r.URL.Path);
         request := NewRequest(r, params)
-        response := &Response{w, nil}
+        response := &Response{w}
         InitSession(request, response)
 
         if route == nil {

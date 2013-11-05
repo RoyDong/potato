@@ -40,7 +40,6 @@ var (
     R *Router
     S *http.Server
     D *DB
-    T *Template
     H *Html
 )
 
@@ -148,7 +147,7 @@ func Init() {
     D = NewDB()
 
     //template
-    T = NewTemplate(Dir.Template)
+    H = NewHtml(Dir.Template)
 
     SessionStart()
 }
