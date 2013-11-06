@@ -40,6 +40,7 @@ func NewSession(r *Request, p *Response) *Session {
     p.SetCookie(&http.Cookie{
         Name: SessionCookieName,
         Value: s.Id,
+        Path: "/",
     })
 
     return s
