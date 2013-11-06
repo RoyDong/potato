@@ -84,7 +84,7 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     //dynamic requests
     } else {
-        route, params := rt.route(r.URL.Path);
+        route, params := rt.route(r.URL.Path)
         request := NewRequest(r, params)
         response := &Response{w}
         InitSession(request, response)
