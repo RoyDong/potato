@@ -40,7 +40,7 @@ var (
     R *Router
     S *http.Server
     D *DB
-    H *Html
+    T *Template
 )
 
 type appDir struct {
@@ -147,7 +147,7 @@ func Init() {
     D = NewDB()
 
     //template
-    H = NewHtml(Dir.Template)
+    T = NewTemplate(Dir.Template)
 
     SessionStart()
 }

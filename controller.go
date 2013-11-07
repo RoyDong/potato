@@ -30,10 +30,11 @@ func (c *Controller) Redirect(url string) {
 }
 
 func (c *Controller) Render(name string, data interface{}) {
-    if t := H.Template(c.Layout); t != nil {
-        c.Template = name
-        c.Data = data
-        t.Execute(c.Response, c)
+    if t := T.Template(c.Layout); t != nil {
+        html := NewHtml()
+        html.Data = data
+        html.Content = T.Include(name, html)
+        t.Execute(c.Response, html)
     } else {
         panic(c.Layout + " template not found")
     }
@@ -43,3 +44,5 @@ func (c *Controller) RenderJson(v interface{}) {
     json,_ := json.Marshal(v)
     c.Response.Write(json)
 }
+
+

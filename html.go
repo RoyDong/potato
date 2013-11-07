@@ -2,9 +2,10 @@ package potato
 
 import (
     "os"
+    "fmt"
     "bytes"
     "strings"
-    "text/template"
+    "html/template"
 )
 
 var (
@@ -12,63 +13,64 @@ var (
     MaxFileSize = int64(2 * 1024 * 1024)
 )
 
-type Html struct {
+type Template struct {
     root *template.Template
     dir string
     funcs template.FuncMap
 }
 
-func NewHtml(dir string) *Html {
-    return &Html{
+func NewTemplate(dir string) *Template {
+    return &Template{
         root: template.New("/"),
         dir: dir,
     }
 }
 
-func (h *Html) Template(name string) *template.Template {
-    return h.root.Lookup(name)
+func (t *Template) Template(name string) *template.Template {
+    return t.root.Lookup(name)
 }
 
-func (h *Html) Include(args ...interface{}) string {
+func (t *Template) Include(args ...interface{}) template.HTML {
     name := args[0].(string)
-    if t := h.root.Lookup(name); t != nil {
+    if tpl := t.root.Lookup(name); tpl != nil {
         var data interface{}
         if len(args) >= 2 {
             data = args[1]
         }
 
         buffer := new(bytes.Buffer)
-        t.Execute(buffer, data)
-        return string(buffer.Bytes())
+        tpl.Execute(buffer, data)
+        return template.HTML(buffer.Bytes())
     }
 
     panic(name + " template not found")
 }
 
-func (h *Html) Defined(name string) bool {
-    return h.root.Lookup(name) != nil
+func (t *Template) Defined(name string) bool {
+    return t.root.Lookup(name) != nil
 }
 
-func (h *Html) Funcs(funcs map[string]interface{}) {
-    h.funcs = template.FuncMap{
-        "include": h.Include,
-        "defined": h.Defined,
+func (t *Template) Funcs(funcs map[string]interface{}) {
+    t.funcs = template.FuncMap{
+        "include": t.Include,
+        "defined": t.Defined,
     }
 
     for k, f := range funcs {
-        h.funcs[k] = f
+        t.funcs[k] = f
     }
 
-    h.root.Funcs(h.funcs)
-    h.loadTemplateFiles(h.dir)
+    t.root.Funcs(t.funcs)
+    t.loadTemplateFiles(t.dir)
 }
 
 /**
  * loadTemplateFiles loads all *.html files under the dir recursively
  */
-func (h *Html) loadTemplateFiles(dir string) {
+func (t *Template) loadTemplateFiles(dir string) {
     d, e := os.Open(dir)
     if e != nil { return }
+    defer d.Close()
 
     dinfo, e := d.Readdir(-1)
     if e != nil { return }
@@ -76,7 +78,7 @@ func (h *Html) loadTemplateFiles(dir string) {
     for _,info := range dinfo {
         uri := dir + info.Name()
         if info.IsDir() {
-            h.loadTemplateFiles(uri + "/")
+            t.loadTemplateFiles(uri + "/")
 
         //check file
         } else if info.Size() <= MaxFileSize &&
@@ -89,14 +91,70 @@ func (h *Html) loadTemplateFiles(dir string) {
 
                     //init template
                     key := strings.TrimPrefix(
-                            strings.TrimSuffix(uri, ".html"), h.dir)
-                    template.Must(h.root.New(key).Parse(string(txt)))
+                            strings.TrimSuffix(uri, ".html"), t.dir)
+                    template.Must(t.root.New(key).Parse(string(txt)))
                 }
 
                 f.Close()
             }
         }
     }
+}
 
-    d.Close()
+type Html struct {
+    css, js []string
+    title string
+    Content template.HTML
+    Data interface{}
+}
+
+func NewHtml() *Html {
+    return &Html{
+        css: make([]string, 0),
+        js: make([]string, 0),
+    }
+}
+
+func (h *Html) Title(title string) string {
+    if len(title) == 0 {
+        return h.title
+    }
+    h.title = title
+    return ""
+}
+
+func (h *Html) CSS(uri string) template.HTML {
+    if len(uri) == 0 {
+        return h.cssHtml()
+    }
+
+    h.css = append(h.css, uri)
+    return template.HTML("")
+}
+
+func (h *Html) cssHtml() template.HTML {
+    format := `<link type="text/css" rel="stylesheet" href="%s"/>`
+    tags := make([]string, len(h.css))
+    for _,uri := range h.css {
+        tags = append(tags, fmt.Sprintf(format, uri))
+    }
+    return template.HTML(strings.Join(tags, "\n"))
+}
+
+func (h *Html) JS(uri string) template.HTML {
+    if len(uri) == 0 {
+        return h.jsHtml()
+    }
+
+    h.js = append(h.js, uri)
+    return template.HTML("")
+}
+
+func (h *Html) jsHtml() template.HTML {
+    format := `<script type="text/javascript" src="%s" ></script>`
+    tags := make([]string, len(h.js))
+    for _,uri := range h.js {
+        tags = append(tags, fmt.Sprintf(format, uri))
+    }
+    return template.HTML(strings.Join(tags, "\n"))
 }
