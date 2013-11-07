@@ -184,6 +184,10 @@ func (rt *Router) controller(t reflect.Type, r *Request, p *Response) reflect.Va
 
 func (rt *Router) handleError(e interface{}, r *Request, p *Response) {
     if err, ok := e.(*Error); ok {
+        if err.Code == RedirectCode {
+            return
+        }
+
         if t, has := rt.controllers[ServerErrorRoute.Controller]; has {
             controller := rt.controller(t, r, p)
             if action := controller.MethodByName(ServerErrorRoute.Action);

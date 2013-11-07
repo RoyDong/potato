@@ -4,6 +4,10 @@ import (
     "fmt"
 )
 
+const (
+    RedirectCode = 302 
+)
+
 type Error struct {
     Code int
     Message string

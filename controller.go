@@ -21,6 +21,7 @@ func NewController(r *Request, p *Response) *Controller {
 
 func (c *Controller) Redirect(url string) {
     http.Redirect(c.Response, c.Request.Request, url, http.StatusFound)
+    Panic(RedirectCode, "redirect is not an error")
 }
 
 func (c *Controller) Render(name string, data interface{}) {
