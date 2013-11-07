@@ -8,11 +8,7 @@ import (
 type Controller struct {
     Request *Request
     Response *Response
-
-    Title string
     Layout string
-    Template string
-    Data interface{}
 }
 
 func NewController(r *Request, p *Response) *Controller {
@@ -20,8 +16,6 @@ func NewController(r *Request, p *Response) *Controller {
         Request: r,
         Response: p,
         Layout: "layout",
-        Template: "index",
-        Title: AppName,
     }
 }
 

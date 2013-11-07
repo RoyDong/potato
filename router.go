@@ -3,6 +3,7 @@ package potato
 import (
     "os"
     "log"
+    "fmt"
     "strings"
     "regexp"
     "reflect"
@@ -31,6 +32,8 @@ type PrefixedRoutes struct {
 
 type Router struct {
 
+    host *regexp.Regexp
+
     //all grouped routes
     routes []*PrefixedRoutes
 
@@ -46,14 +49,13 @@ func NewRouter() *Router {
 /**
  * Controllers register controllers on router
  */
-func (rt *Router) Controllers(cs []interface{}) {
-    for _,c := range cs {
+func (rt *Router) Controllers(cs map[string]interface{}) {
+    for n, c := range cs {
         elem := reflect.ValueOf(c).Elem()
 
         //Controller must embeded from *potato.Controller
         if elem.FieldByName("Controller").CanSet() {
-            t := elem.Type()
-            rt.controllers[t.Name()] = t
+            rt.controllers[n] = elem.Type()
         }
     }
 }
@@ -62,6 +64,8 @@ func (rt *Router) LoadConfig(filename string) {
     if e := LoadYaml(&rt.routes, filename); e != nil {
         log.Fatal(e)
     }
+
+    rt.host = regexp.MustCompile(fmt.Sprintf("(?i)%s(:%d)?$", Host, Port))
 
     for _,pr := range rt.routes {
 
@@ -77,24 +81,30 @@ func (rt *Router) LoadConfig(filename string) {
 func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     L.Println(r.Method, r.Proto, r.Host, r.RequestURI, r.RemoteAddr)
 
-    //static files, deny all dir requests
-    file := Dir.Static + r.URL.Path[1:]
-    if info, e := os.Stat(file); e == nil && !info.IsDir() {
-        http.ServeFile(w, r, file)
+    if rt.host.MatchString(r.Host) {
 
-    //dynamic requests
-    } else {
-        route, params := rt.route(r.URL.Path)
-        request := NewRequest(r, params)
-        response := &Response{w}
-        InitSession(request, response)
+        //static files, deny all dir requests
+        file := Dir.Static + r.URL.Path[1:]
+        if info, e := os.Stat(file); e == nil && !info.IsDir() {
+            http.ServeFile(w, r, file)
 
-        if route == nil {
-            rt.handleError(&Error{http.StatusNotFound, "page not found"},
-                    request, response)
+        //dynamic requests
         } else {
-            rt.handle(route, request, response)
+            route, params := rt.route(r.URL.Path)
+            request := NewRequest(r, params)
+            response := &Response{w}
+            InitSession(request, response)
+
+            if route == nil {
+                rt.handleError(&Error{http.StatusNotFound, "page not found"},
+                        request, response)
+            } else {
+                rt.handle(route, request, response)
+            }
         }
+
+    } else {
+        http.Redirect(w, r, WebAddr(), http.StatusFound)
     }
 }
 
@@ -167,9 +177,7 @@ func (rt *Router) controller(t reflect.Type, r *Request, p *Response) reflect.Va
             Set(reflect.ValueOf(Controller{
                     Request: r,
                     Response: p,
-                    Layout: "layout",
-                    Template: "index",
-                    Title: AppName}))
+                    Layout: "layout"}))
 
     return controller
 }
