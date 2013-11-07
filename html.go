@@ -50,10 +50,15 @@ func (t *Template) Defined(name string) bool {
     return t.root.Lookup(name) != nil
 }
 
+func (t *Template) Html(str string) template.HTML {
+    return template.HTML(str)
+}
+
 func (t *Template) Funcs(funcs map[string]interface{}) {
     t.funcs = template.FuncMap{
         "include": t.Include,
         "defined": t.Defined,
+        "html": t.Html,
     }
 
     for k, f := range funcs {
