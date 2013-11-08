@@ -160,11 +160,11 @@ func Serve() {
         Handler: R,
     }
 
-    L.Println(WebAddr(), "is now online")
+    L.Println(WebSiteAddr(), "is now online")
     L.Println(S.ListenAndServe())
 }
 
-func WebAddr() string {
+func WebSiteAddr() string {
     if Port == 80 {
         return fmt.Sprintf("http://%s", Host)
     }

@@ -104,7 +104,7 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         }
 
     } else {
-        http.Redirect(w, r, WebAddr(), http.StatusFound)
+        http.Redirect(w, r, WebSiteAddr(), http.StatusFound)
     }
 }
 
