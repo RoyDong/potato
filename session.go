@@ -24,7 +24,7 @@ type Session struct {
 }
 
 func SessionStart() {
-    go checkSessionExpire()
+    go checkSessionExpiration()
 }
 
 func NewSession(r *Request, p *Response) *Session {
@@ -84,7 +84,11 @@ func createSessionId(r *Request) string {
     return hex.EncodeToString(hash.Sum(nil))
 }
 
-func checkSessionExpire() {
+/**
+ * checkSessionExpiration checks sessons expiration per minute 
+ * and delete all expired sessions
+ */
+func checkSessionExpiration() {
     for now := range time.Tick(time.Minute) {
         t := now.Unix()
         for k, s := range sessions {
