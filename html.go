@@ -54,11 +54,16 @@ func (t *Template) Html(str string) template.HTML {
     return template.HTML(str)
 }
 
+func (t *Template) Potato() template.HTML {
+    return template.HTML(fmt.Sprintf(`<a href="https://github.com/roydong/potato">Potato framework %s</a>`, Version))
+}
+
 func (t *Template) Funcs(funcs map[string]interface{}) {
     t.funcs = template.FuncMap{
+        "potato":  t.Potato,
         "include": t.Include,
         "defined": t.Defined,
-        "html": t.Html,
+        "html":    t.Html,
     }
 
     for k, f := range funcs {
@@ -109,14 +114,16 @@ func (t *Template) loadTemplateFiles(dir string) {
 type Html struct {
     css, js []string
     title string
-    Content template.HTML
+    fragments map[string]template.HTML
     Data interface{}
+    Content template.HTML
 }
 
 func NewHtml() *Html {
     return &Html{
         css: make([]string, 0),
         js: make([]string, 0),
+        fragments: make(map[string]template.HTML),
     }
 }
 
@@ -126,6 +133,23 @@ func (h *Html) Title(title string) string {
     }
     h.title = title
     return ""
+}
+
+func (h *Html) F(args ...interface{}) template.HTML {
+    name, ok := args[0].(string)
+    if !ok {
+        return template.HTML("")
+    }
+
+    if len(args) >= 2 {
+        if frag, ok := args[1].(string); ok {
+            h.fragments[name] = template.HTML(frag)
+        }
+
+        return template.HTML("")
+    }
+
+    return h.fragments[name]
 }
 
 func (h *Html) CSS(uri string) template.HTML {

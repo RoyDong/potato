@@ -10,7 +10,7 @@ import (
 
 var (
     AppName = "a potato application"
-    Version = "0.0.1"
+    Version = "0.1.0"
     Env     = "prod"
 
     Host    = "localhost"
