@@ -9,8 +9,8 @@ const (
 )
 
 type Error struct {
-    Code int
-    Message string
+    Code int `json:"code"`
+    Message string `json:"message"`
 }
 
 func Panic(c int, m string) {

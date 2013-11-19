@@ -23,6 +23,10 @@ func NewRequest(r *http.Request, p map[string]string) *Request {
     return rq
 }
 
+func (r *Request) IsAjax() bool {
+    return r.Header.Get("X-Requested-With") == "XMLHttpRequest"
+}
+
 func (r *Request) Int(k string) (int, bool) {
     if v, has := r.String(k); has {
         if i, e := strconv.ParseInt(v, 10, 0); e == nil {

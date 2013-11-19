@@ -8,6 +8,7 @@ import (
     "regexp"
     "reflect"
     "net/http"
+    "encoding/json"
 )
 
 type Route struct {
@@ -198,7 +199,12 @@ func (rt *Router) handleError(e interface{}, r *Request, p *Response) {
             }
         }
 
-        p.Write([]byte(err.String()))
+        if r.IsAjax() {
+            json,_ := json.Marshal(err)
+            p.Write(json)
+        } else {
+            p.Write([]byte(err.String()))
+        }
     }
 
     L.Println(e)

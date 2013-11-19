@@ -120,44 +120,44 @@ type Html struct {
 }
 
 func NewHtml() *Html {
-    return &Html{
+    return &Html {
         css: make([]string, 0),
         js: make([]string, 0),
         fragments: make(map[string]template.HTML),
     }
 }
 
-func (h *Html) Title(title string) string {
+func (h *Html) Title(title ...string) string {
     if len(title) == 0 {
         return h.title
     }
-    h.title = title
+
+    h.title = title[0]
     return ""
 }
 
-func (h *Html) F(args ...interface{}) template.HTML {
-    name, ok := args[0].(string)
-    if !ok {
+func (h *Html) F(args ...string) template.HTML {
+    if len(args) == 0 {
         return template.HTML("")
     }
 
-    if len(args) >= 2 {
-        if frag, ok := args[1].(string); ok {
-            h.fragments[name] = template.HTML(frag)
-        }
-
-        return template.HTML("")
+    if len(args) == 1 {
+        return h.fragments[args[0]]
     }
 
-    return h.fragments[name]
+    h.fragments[args[0]] = template.HTML(args[1])
+    return template.HTML("")
 }
 
-func (h *Html) CSS(uri string) template.HTML {
-    if len(uri) == 0 {
+func (h *Html) CSS(urls ...string) template.HTML {
+    if len(urls) == 0 {
         return h.cssHtml()
     }
 
-    h.css = append(h.css, uri)
+    for _,url := range urls {
+        h.css = append(h.css, url)
+    }
+
     return template.HTML("")
 }
 
@@ -170,17 +170,20 @@ func (h *Html) cssHtml() template.HTML {
     return template.HTML(strings.Join(tags, "\n"))
 }
 
-func (h *Html) JS(uri string) template.HTML {
-    if len(uri) == 0 {
+func (h *Html) JS(urls ...string) template.HTML {
+    if len(urls) == 0 {
         return h.jsHtml()
     }
 
-    h.js = append(h.js, uri)
+    for _, url := range urls {
+        h.js = append(h.js, url)
+    }
+
     return template.HTML("")
 }
 
 func (h *Html) jsHtml() template.HTML {
-    format := `<script type="text/javascript" src="%s" ></script>`
+    format := `<script src="%s"></script>`
     tags := make([]string, len(h.js))
     for _,uri := range h.js {
         tags = append(tags, fmt.Sprintf(format, uri))

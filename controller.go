@@ -36,8 +36,11 @@ func (c *Controller) Render(name string, data interface{}) {
 }
 
 func (c *Controller) RenderJson(v interface{}) {
-    json,_ := json.Marshal(v)
+    json, e := json.Marshal(v)
+    if e != nil {
+        L.Println(e)
+    }
+
     c.Response.Write(json)
 }
-
 
