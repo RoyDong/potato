@@ -2,14 +2,17 @@ package potato
 
 
 import (
-    "strconv"
     "fmt"
+    "strings"
+    "strconv"
     "net/http"
 )
 
 type Request struct {
     *http.Request
     params map[string]string
+    RemoteIP string
+    RemotePort int
     Session *Session
     Cookies []*http.Cookie
 }
@@ -21,7 +24,14 @@ func NewRequest(r *http.Request, p map[string]string) *Request {
         Cookies: r.Cookies(),
     }
 
+    rq.parseAddr()
+
     return rq
+}
+
+func (r *Request) parseAddr() {
+    addr := strings.Split(":", r.RemoteAddr)
+    r.RemoteIP = addr[0]
 }
 
 func (r *Request) SiteAddr() string {
