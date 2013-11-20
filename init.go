@@ -141,7 +141,8 @@ func Init() {
 
     //router
     R = NewRouter()
-    R.LoadConfig(Dir.Config + "routes.yml")
+    R.LoadRouteConfig(Dir.Config + "routes.yml")
+    //R.LoadRdrtConfig(config.Value("http.redirections").(map[interface{}]interface{}))
 
     //db
     D = NewDB()
@@ -160,14 +161,7 @@ func Serve() {
         Handler: R,
     }
 
-    L.Println(WebSiteAddr(), "is now online")
+    L.Println(AppName, "is now online")
     L.Println(S.ListenAndServe())
 }
 
-func WebSiteAddr() string {
-    if Port == 80 {
-        return fmt.Sprintf("http://%s", Host)
-    }
-
-    return fmt.Sprintf("http://%s:%d", Host, Port)
-}

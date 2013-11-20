@@ -4,8 +4,8 @@ import (
     "os"
     "log"
     "fmt"
-    "strings"
     "regexp"
+    "strings"
     "reflect"
     "net/http"
     "encoding/json"
@@ -31,9 +31,16 @@ type PrefixedRoutes struct {
     Routes []*Route `yaml:"routes"`
 }
 
+type Redirection struct {
+    regexp *regexp.Regexp
+    host string
+}
+
 type Router struct {
 
     host *regexp.Regexp
+
+    redirections []*Redirection
 
     //all grouped routes
     routes []*PrefixedRoutes
@@ -61,12 +68,12 @@ func (rt *Router) Controllers(cs map[string]interface{}) {
     }
 }
 
-func (rt *Router) LoadConfig(filename string) {
+func (rt *Router) LoadRouteConfig(filename string) {
     if e := LoadYaml(&rt.routes, filename); e != nil {
         log.Fatal(e)
     }
 
-    rt.host = regexp.MustCompile(fmt.Sprintf("(?i)%s(:%d)?$", Host, Port))
+    rt.host = regexp.MustCompile(fmt.Sprintf("^%s(:%d)?$", Host, Port))
 
     for _,pr := range rt.routes {
 
@@ -78,11 +85,37 @@ func (rt *Router) LoadConfig(filename string) {
     }
 }
 
+/**
+ * not use
+ */
+func (rt *Router) LoadRdrtConfig(r map[interface{}]interface{}) {
+    for k, v := range r {
+        rt.redirections = append(rt.redirections, &Redirection {
+            regexp: regexp.MustCompile("^" + k.(string) + "$"),
+            host: v.(string),
+        })
+    }
+}
+
 
 func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     L.Println(r.Method, r.Proto, r.Host, r.RequestURI, r.RemoteAddr)
 
-    if rt.host.MatchString(r.Host) {
+    if rt.host.MatchString(strings.ToLower(r.Host)) {
+
+        /**
+         * necessary ?
+         *
+        host := strings.ToLower(r.Host)
+        for _,rdrt := range rt.redirections {
+            if rdrt.host == strings.ToLower(host) { break }
+
+            if rdrt.regexp.MatchString(host) {
+                http.Redirect(w, r, "http://" + rdrt.host, http.StatusFound)
+                return
+            }
+        }
+        */
 
         //static files, deny all dir requests
         file := Dir.Static + r.URL.Path[1:]
@@ -103,9 +136,8 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
                 rt.handle(route, request, response)
             }
         }
-
     } else {
-        http.Redirect(w, r, WebSiteAddr(), http.StatusFound)
+        http.NotFound(w, r)
     }
 }
 
