@@ -35,6 +35,14 @@ func (c *Controller) Render(name string, data interface{}) {
     }
 }
 
+func (c *Controller) RenderPartial(name string, data interface{}) {
+    if t := T.Template(name); t != nil {
+        t.Execute(c.Response, data)
+    } else {
+        panic(name + " template not found")
+    }
+}
+
 func (c *Controller) RenderJson(v interface{}) {
     json, e := json.Marshal(v)
     if e != nil {
