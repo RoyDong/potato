@@ -36,10 +36,10 @@ func (r *Request) parseAddr() {
 
 func (r *Request) SiteAddr() string {
     if Port == 80 {
-        return fmt.Sprintf("http://%s", r.Host)
+        return fmt.Sprintf("%s%s", Scheme, r.Host)
     }
 
-    return fmt.Sprintf("http://%s:%d", r.Host, Port)
+    return fmt.Sprintf("%s%s:%d", Scheme, r.Host, Port)
 }
 
 func (r *Request) IsAjax() bool {

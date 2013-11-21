@@ -32,15 +32,15 @@ type PrefixedRoutes struct {
 }
 
 type Redirection struct {
-    regexp *regexp.Regexp
-    host string
+    Regexp *regexp.Regexp
+    Target string
 }
 
 type Router struct {
 
     host *regexp.Regexp
 
-    redirections []*Redirection
+    rdrts []*Redirection
 
     //all grouped routes
     routes []*PrefixedRoutes
@@ -85,14 +85,12 @@ func (rt *Router) LoadRouteConfig(filename string) {
     }
 }
 
-/**
- * not use
- */
-func (rt *Router) LoadRdrtConfig(r map[interface{}]interface{}) {
-    for k, v := range r {
-        rt.redirections = append(rt.redirections, &Redirection {
-            regexp: regexp.MustCompile("^" + k.(string) + "$"),
-            host: v.(string),
+func (rt *Router) LoadRdrtConfig(c interface{}) {
+    for _,v := range c.([]interface{}) {
+        rdrt := v.(map[interface{}]interface{})
+        rt.rdrts = append(rt.rdrts, &Redirection {
+            Regexp: regexp.MustCompile("^" + rdrt["regexp"].(string) + "$"),
+            Target: rdrt["target"].(string),
         })
     }
 }
@@ -100,22 +98,21 @@ func (rt *Router) LoadRdrtConfig(r map[interface{}]interface{}) {
 
 func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     L.Println(r.Method, r.Proto, r.Host, r.RequestURI, r.RemoteAddr)
+    host := strings.ToLower(r.Host)
 
-    if rt.host.MatchString(strings.ToLower(r.Host)) {
+    if rt.host.MatchString(host) {
 
-        /**
-         * necessary ?
-         *
-        host := strings.ToLower(r.Host)
-        for _,rdrt := range rt.redirections {
-            if rdrt.host == strings.ToLower(host) { break }
+        //redirecting hosts
+        for _,rdrt := range rt.rdrts {
+            if rdrt.Target == host {
+                break
+            }
 
-            if rdrt.regexp.MatchString(host) {
-                http.Redirect(w, r, "http://" + rdrt.host, http.StatusFound)
+            if rdrt.Regexp.MatchString(host) {
+                http.Redirect(w, r, Scheme + rdrt.Target, http.StatusFound)
                 return
             }
         }
-        */
 
         //static files, deny all dir requests
         file := Dir.Static + r.URL.Path[1:]

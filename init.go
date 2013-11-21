@@ -13,6 +13,7 @@ var (
     Version = "0.1.0"
     Env     = "prod"
 
+    Scheme = "http://"
     Host    = "localhost"
     Port    = 80
     Timeout = 30
@@ -142,7 +143,7 @@ func Init() {
     //router
     R = NewRouter()
     R.LoadRouteConfig(Dir.Config + "routes.yml")
-    //R.LoadRdrtConfig(config.Value("http.redirections").(map[interface{}]interface{}))
+    R.LoadRdrtConfig(config.Value("http.redirections"))
 
     //db
     D = NewDB()
