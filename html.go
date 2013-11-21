@@ -33,13 +33,27 @@ func (t *Template) Template(name string) *template.Template {
 func (t *Template) Include(args ...interface{}) template.HTML {
     name := args[0].(string)
     if tpl := t.root.Lookup(name); tpl != nil {
-        var data interface{}
-        if len(args) >= 2 {
-            data = args[1]
+        var buffer = new(bytes.Buffer)
+        var l = len(args)
+
+        if l == 1 {
+            tpl.Execute(buffer, nil)
+
+        //only one argument
+        } else if l == 2 {
+            tpl.Execute(buffer, args[1])
+
+        //set all data to a map 
+        //arguments must be listed as key, value, key, value,...
+        } else if l > 2 {
+            m := make(map[string]interface{}, l / 2)
+            for i := 1; i < l - 1; i = i + 2 {
+                m[args[i].(string)] = args[i + 1]
+            }
+
+            tpl.Execute(buffer, m)
         }
 
-        buffer := new(bytes.Buffer)
-        tpl.Execute(buffer, data)
         return template.HTML(buffer.Bytes())
     }
 
