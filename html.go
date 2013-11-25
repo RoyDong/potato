@@ -197,7 +197,7 @@ func (h *Html) JS(urls ...string) template.HTML {
 }
 
 func (h *Html) jsHtml() template.HTML {
-    format := `<script src="%s"></script>`
+    format := `<script charset="utf-8" src="%s"></script>`
     tags := make([]string, len(h.js))
     for _,uri := range h.js {
         tags = append(tags, fmt.Sprintf(format, uri))
