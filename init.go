@@ -5,6 +5,7 @@ import (
     "log"
     "fmt"
     "strings"
+    "net"
     "net/http"
 )
 
@@ -12,18 +13,14 @@ var (
     AppName = "a potato application"
     Version = "0.1.0"
     Env     = "prod"
-
-    Scheme = "http://"
-    Host    = "localhost"
-    Port    = 80
-    Timeout = 30
+    Sock    = ""
+    Port    = 37221
 
     Dir     = &appDir{
         Config:     "config/",
         Controller: "controller/",
         Model:      "model/",
         Template:   "template/",
-        Static:     "static/",
         Log:        "log/",
     }
 
@@ -49,7 +46,6 @@ type appDir struct {
     Controller string
     Model string
     Template string
-    Static string
     Log string
 }
 
@@ -73,22 +69,12 @@ func Init() {
         SessionCookieName = v
     }
 
-    //http config
-    if v, ok := config.String("http.host"); ok {
-        Host = v
-    }
-    if v, ok := config.Int("http.port"); ok {
+    if v, ok := config.String("sock"); ok {
+        Sock = v 
+    } else if v, ok := config.Int("port"); ok {
         Port = v
     }
-    if v, ok := config.Int("http.timeout"); ok {
-        Timeout = v
-    }
 
-    //dir config
-    if dir, ok := config.String("static_dir"); ok {
-        dir = strings.Trim(dir, "./")
-        Dir.Static = dir + "/"
-    }
     if dir, ok := config.String("log_dir"); ok {
         dir = strings.Trim(dir, "./")
         Dir.Log = dir + "/"
@@ -143,7 +129,6 @@ func Init() {
     //router
     R = NewRouter()
     R.LoadRouteConfig(Dir.Config + "routes.yml")
-    R.LoadRdrtConfig(config.Value("http.redirections"))
 
     //db
     D = NewDB()
@@ -155,14 +140,23 @@ func Init() {
 }
 
 func Serve() {
+    var l net.Listener
+    var e error
 
-    //create server
-    S = &http.Server{
-        Addr: fmt.Sprintf(":%d", Port),
-        Handler: R,
+    if len(Sock) > 0 {
+        os.Remove(Sock)
+        l, e = net.Listen("unix", Sock)
+        os.Chmod(Sock, os.ModePerm)
+    } else {
+        l, e = net.Listen("tcp", fmt.Sprintf(":%d", Port))
     }
 
-    L.Println(AppName, "is now online")
-    L.Println(S.ListenAndServe())
+    if e != nil {
+        L.Fatal("failed to start listening", e)
+    }
+
+    S = &http.Server{Handler: R}
+    L.Println(S.Serve(l))
+    l.Close()
 }
 

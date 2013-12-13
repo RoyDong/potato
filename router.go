@@ -1,9 +1,7 @@
 package potato
 
 import (
-    "os"
     "log"
-    "fmt"
     "regexp"
     "strings"
     "reflect"
@@ -38,10 +36,6 @@ type Redirection struct {
 
 type Router struct {
 
-    host *regexp.Regexp
-
-    rdrts []*Redirection
-
     //all grouped routes
     routes []*PrefixedRoutes
 
@@ -73,8 +67,6 @@ func (rt *Router) LoadRouteConfig(filename string) {
         log.Fatal(e)
     }
 
-    rt.host = regexp.MustCompile(fmt.Sprintf("^%s(:%d)?$", Host, Port))
-
     for _,pr := range rt.routes {
 
         //prepare regexps for prefixed routes
@@ -85,56 +77,18 @@ func (rt *Router) LoadRouteConfig(filename string) {
     }
 }
 
-func (rt *Router) LoadRdrtConfig(c interface{}) {
-    for _,v := range c.([]interface{}) {
-        rdrt := v.(map[interface{}]interface{})
-        rt.rdrts = append(rt.rdrts, &Redirection {
-            Regexp: regexp.MustCompile("^" + rdrt["regexp"].(string) + "$"),
-            Target: rdrt["target"].(string),
-        })
-    }
-}
-
 
 func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-    L.Println(r.Method, r.Proto, r.Host, r.RequestURI, r.RemoteAddr)
-    host := strings.ToLower(r.Host)
+    route, params := rt.route(r.URL.Path)
+    request := NewRequest(r, params)
+    response := &Response{w}
+    InitSession(request, response)
 
-    if rt.host.MatchString(host) {
-
-        //redirecting hosts
-        for _,rdrt := range rt.rdrts {
-            if rdrt.Target == host {
-                break
-            }
-
-            if rdrt.Regexp.MatchString(host) {
-                http.Redirect(w, r, Scheme + rdrt.Target, http.StatusFound)
-                return
-            }
-        }
-
-        //static files, deny all dir requests
-        file := Dir.Static + r.URL.Path[1:]
-        if info, e := os.Stat(file); e == nil && !info.IsDir() {
-            http.ServeFile(w, r, file)
-
-        //dynamic requests
-        } else {
-            route, params := rt.route(r.URL.Path)
-            request := NewRequest(r, params)
-            response := &Response{w}
-            InitSession(request, response)
-
-            if route == nil {
-                rt.handleError(&Error{http.StatusNotFound, "page not found"},
-                        request, response)
-            } else {
-                rt.handle(route, request, response)
-            }
-        }
+    if route == nil {
+        rt.handleError(&Error{http.StatusNotFound, "page not found"},
+                request, response)
     } else {
-        http.NotFound(w, r)
+        rt.handle(route, request, response)
     }
 }
 

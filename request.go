@@ -2,7 +2,6 @@ package potato
 
 
 import (
-    "fmt"
     "strings"
     "strconv"
     "net/http"
@@ -29,17 +28,9 @@ func NewRequest(r *http.Request, p map[string]string) *Request {
     return rq
 }
 
-func (r *Request) parseAddr() {
-    addr := strings.Split(":", r.RemoteAddr)
-    r.RemoteIP = addr[0]
-}
-
 func (r *Request) SiteAddr() string {
-    if Port == 80 {
-        return fmt.Sprintf("%s%s", Scheme, r.Host)
-    }
-
-    return fmt.Sprintf("%s%s:%d", Scheme, r.Host, Port)
+    //TODO
+    return "";
 }
 
 func (r *Request) IsAjax() bool {
