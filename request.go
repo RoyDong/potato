@@ -2,7 +2,6 @@ package potato
 
 
 import (
-    "strings"
     "strconv"
     "net/http"
 )
@@ -22,8 +21,6 @@ func NewRequest(r *http.Request, p map[string]string) *Request {
         params: p,
         Cookies: r.Cookies(),
     }
-
-    rq.parseAddr()
 
     return rq
 }
