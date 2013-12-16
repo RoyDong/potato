@@ -34,6 +34,7 @@ var (
         Action: "ServerError",
     }
 
+    Listener net.Listener
     L *Logger
     R *Router
     S *http.Server
@@ -140,15 +141,14 @@ func Init() {
 }
 
 func Serve() {
-    var l net.Listener
     var e error
 
     if len(Sock) > 0 {
         os.Remove(Sock)
-        l, e = net.Listen("unix", Sock)
+        Listener, e = net.Listen("unix", Sock)
         os.Chmod(Sock, os.ModePerm)
     } else {
-        l, e = net.Listen("tcp", fmt.Sprintf(":%d", Port))
+        Listener, e = net.Listen("tcp", fmt.Sprintf(":%d", Port))
     }
 
     if e != nil {
@@ -156,7 +156,7 @@ func Serve() {
     }
 
     S = &http.Server{Handler: R}
-    L.Println(S.Serve(l))
-    l.Close()
+    L.Println(S.Serve(Listener))
+    Listener.Close()
 }
 
