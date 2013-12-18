@@ -8,13 +8,13 @@ import (
 )
 
 type Model struct {
-    table string
-    columns []string
+    Table string
+    Columns []string
 }
 
 
-func (m *Model) SqlColumnsPart(columns []string) string {
-    return "`" + strings.Join(columns, "`,`") + "`"
+func (m *Model) SqlColumnsPart(Columns []string) string {
+    return "`" + strings.Join(Columns, "`,`") + "`"
 }
 
 func (m *Model) CreateFindStmt(query map[string]interface{}, order string, limit ...int) (string, []interface{}) {
@@ -41,10 +41,10 @@ func (m *Model) CreateFindStmt(query map[string]interface{}, order string, limit
 
     if len(limit) == 1 {
         stmt = fmt.Sprintf("SELECT %s FROM `%s` %s ORDER BY %s LIMIT %d",
-                m.SqlColumnsPart(m.columns), m.table, where, order, limit[0])
+                m.SqlColumnsPart(m.Columns), m.Table, where, order, limit[0])
     } else if len(limit) == 2 {
         stmt = fmt.Sprintf("SELECT %s FROM `%s` %s ORDER BY %s LIMIT %d, %d",
-                m.SqlColumnsPart(m.columns), m.table, where, order, limit[0], limit[1])
+                m.SqlColumnsPart(m.Columns), m.Table, where, order, limit[0], limit[1])
     }
 
     return stmt, values
