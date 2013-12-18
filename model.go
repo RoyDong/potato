@@ -36,7 +36,7 @@ func (m *Model) CreateFindStmt(query map[string]interface{}, order string, limit
             values = append(values, v)
         }
 
-        where = strings.Join(conditions, " AND ")
+        where = "WHERE " + strings.Join(conditions, " AND ")
     }
 
     if len(limit) == 0 {
