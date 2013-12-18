@@ -43,10 +43,6 @@ func NewDB() *DB {
         log.Fatal(e)
     }
 
-    if e = db.Ping(); e != nil {
-        log.Fatal(e)
-    }
-
     return &DB{DB: db}
 }
 

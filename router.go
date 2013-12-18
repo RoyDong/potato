@@ -7,6 +7,7 @@ import (
     "reflect"
     "net/http"
     "encoding/json"
+    ws "code.google.com/p/go.net/websocket"
 )
 
 type Route struct {
@@ -30,6 +31,7 @@ type PrefixedRoutes struct {
 }
 
 type Router struct {
+    ws ws.Server
     Event
 
     //all grouped routes
@@ -41,6 +43,7 @@ type Router struct {
 func NewRouter() *Router {
     return &Router{
         Event: Event{make(map[string][]EventHandler)},
+        ws: ws.Server{},
         controllers: make(map[string]reflect.Type),
     }
 }
@@ -76,8 +79,16 @@ func (rt *Router) LoadRouteConfig(filename string) {
 
 
 func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-    route, params := rt.route(r.URL.Path)
+    route, params := rt.Route(r.URL.Path)
     request := NewRequest(r, params)
+    if r.Header.Get("Upgrade") == "websocket" {
+        L.Println(1)
+        if conn := rt.ws.Conn(w, r); conn != nil {
+            request.WSConn = conn
+            //defer conn.Close()
+        }
+    }
+
     response := &Response{ResponseWriter: w}
     InitSession(request, response)
     rt.TriggerEvent("request_start", request, response)
@@ -86,13 +97,13 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         rt.handleError(&Error{http.StatusNotFound, "page not found"},
                 request, response)
     } else {
-        rt.handle(route, request, response)
+        rt.dispatch(route, request, response)
     }
 
     rt.TriggerEvent("request_end", request, response)
 }
 
-func (rt *Router) route(path string) (*Route, map[string]string) {
+func (rt *Router) Route(path string) (*Route, map[string]string) {
 
     //case insensitive
     //make sure the patterns in routes.yml is lower case too
@@ -121,7 +132,7 @@ func (rt *Router) route(path string) (*Route, map[string]string) {
     return nil, nil
 }
 
-func (rt *Router) handle(route *Route, r *Request, p *Response) {
+func (rt *Router) dispatch(route *Route, r *Request, p *Response) {
 
     //handle panics
     defer func () {
@@ -139,7 +150,7 @@ func (rt *Router) handle(route *Route, r *Request, p *Response) {
         if !action.IsValid() {
             Panic(http.StatusNotFound, "page not found")
         }
-        
+
         //if controller has Init method, run it first
         if init := c.MethodByName("Init"); init.IsValid() {
             init.Call(nil)

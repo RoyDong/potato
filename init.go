@@ -25,6 +25,8 @@ var (
     }
 
     Listener net.Listener
+    WS *http.Server
+
     L *Logger
     R *Router
     S *http.Server
@@ -61,7 +63,7 @@ func Init() {
     }
 
     if v, ok := config.String("sock"); ok {
-        Sock = v 
+        Sock = v
     } else if v, ok := config.Int("port"); ok {
         Port = v
     }
@@ -130,8 +132,8 @@ func Serve() {
         L.Fatal("failed to start listening", e)
     }
 
+    WS = &http.Server{Addr: fmt.Sprintf(":%d", WSPort), Handler: R}
     S = &http.Server{Handler: R}
     L.Println(S.Serve(Listener))
     Listener.Close()
 }
-

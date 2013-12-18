@@ -4,10 +4,12 @@ package potato
 import (
     "strconv"
     "net/http"
+    ws "code.google.com/p/go.net/websocket"
 )
 
 type Request struct {
     *http.Request
+    WSConn *ws.Conn
     params map[string]string
     RemoteIP string
     RemotePort int
