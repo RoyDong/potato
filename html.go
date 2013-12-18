@@ -72,7 +72,7 @@ func (t *Template) Potato() template.HTML {
     return template.HTML(fmt.Sprintf(`<a href="https://github.com/roydong/potato">Potato framework %s</a>`, Version))
 }
 
-func (t *Template) Funcs(funcs map[string]interface{}) {
+func (t *Template) SetFuncs(funcs map[string]interface{}) {
     t.funcs = template.FuncMap{
         "potato":  t.Potato,
         "include": t.Include,

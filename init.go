@@ -24,16 +24,6 @@ var (
         Log:        "log/",
     }
 
-    NotFoundRoute = &Route{
-        Controller: "Error",
-        Action: "NotFound",
-    }
-
-    ServerErrorRoute = &Route{
-        Controller: "Error",
-        Action: "ServerError",
-    }
-
     Listener net.Listener
     L *Logger
     R *Router
@@ -85,20 +75,6 @@ func Init() {
         SessionDir = dir + "/"
     }
 
-    //error handlers
-    if v, ok := config.String("error_handler.not_found.controller"); ok {
-        NotFoundRoute.Controller = v
-    }
-    if v, ok := config.String("error_handler.not_found.action"); ok {
-        NotFoundRoute.Action = v
-    }
-    if v, ok := config.String("error_handler.server_error.controller"); ok {
-        ServerErrorRoute.Controller = v
-    }
-    if v, ok := config.String("error_handler.server_error.action"); ok {
-        ServerErrorRoute.Action = v
-    }
-
     //db config
     if v, ok := config.String("sql.type"); ok {
         DBConfig.Type = v
@@ -142,7 +118,6 @@ func Init() {
 
 func Serve() {
     var e error
-
     if len(Sock) > 0 {
         os.Remove(Sock)
         Listener, e = net.Listen("unix", Sock)

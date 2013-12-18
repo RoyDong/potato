@@ -14,6 +14,7 @@ var (
     SessionDir = "session/"
     SessionDuration = int64(60 * 60 * 24)
     SessionCookieName = "POTATO_SESSION_ID"
+    SessionDomain string
     sessions = make(map[string]*Session)
 )
 
@@ -41,6 +42,7 @@ func NewSession(r *Request, p *Response) *Session {
         Name: SessionCookieName,
         Value: s.Id,
         Path: "/",
+        Domain: SessionDomain,
     })
 
     return s
@@ -60,7 +62,7 @@ func InitSession(r *Request, p *Response) {
     } else {
         t := time.Now()
 
-        //check session expire time
+        //check session expiration
         if r.Session.LastActivity.Unix() + SessionDuration < t.Unix() {
             r.Session.Clear()
         }

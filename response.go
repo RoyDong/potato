@@ -7,6 +7,7 @@ import (
 
 type Response struct {
     http.ResponseWriter
+    Sent bool
 }
 
 func (r *Response) SetCookie(c *http.Cookie) {

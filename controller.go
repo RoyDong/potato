@@ -30,6 +30,7 @@ func (c *Controller) Render(name string, data interface{}) {
         html.Data = data
         html.Content = T.Include(name, html)
         t.Execute(c.Response, html)
+        c.Response.Sent = true
     } else {
         panic(c.Layout + " template not found")
     }
@@ -50,5 +51,6 @@ func (c *Controller) RenderJson(v interface{}) {
     }
 
     c.Response.Write(json)
+    c.Response.Sent = true
 }
 

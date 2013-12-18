@@ -29,12 +29,8 @@ type PrefixedRoutes struct {
     Routes []*Route `yaml:"routes"`
 }
 
-type Redirection struct {
-    Regexp *regexp.Regexp
-    Target string
-}
-
 type Router struct {
+    Event
 
     //all grouped routes
     routes []*PrefixedRoutes
@@ -44,6 +40,7 @@ type Router struct {
 
 func NewRouter() *Router {
     return &Router{
+        Event: Event{make(map[string][]EventHandler)},
         controllers: make(map[string]reflect.Type),
     }
 }
@@ -51,11 +48,11 @@ func NewRouter() *Router {
 /**
  * Controllers register controllers on router
  */
-func (rt *Router) Controllers(cs map[string]interface{}) {
+func (rt *Router) SetControllers(cs map[string]interface{}) {
     for n, c := range cs {
         elem := reflect.ValueOf(c).Elem()
 
-        //Controller must embeded from *potato.Controller
+        //Controller must embeded from potato.Controller
         if elem.FieldByName("Controller").CanSet() {
             rt.controllers[n] = elem.Type()
         }
@@ -81,8 +78,9 @@ func (rt *Router) LoadRouteConfig(filename string) {
 func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     route, params := rt.route(r.URL.Path)
     request := NewRequest(r, params)
-    response := &Response{w}
+    response := &Response{ResponseWriter: w}
     InitSession(request, response)
+    rt.TriggerEvent("request_start", request, response)
 
     if route == nil {
         rt.handleError(&Error{http.StatusNotFound, "page not found"},
@@ -90,6 +88,8 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     } else {
         rt.handle(route, request, response)
     }
+
+    rt.TriggerEvent("request_end", request, response)
 }
 
 func (rt *Router) route(path string) (*Route, map[string]string) {
@@ -131,24 +131,23 @@ func (rt *Router) handle(route *Route, r *Request, p *Response) {
     }()
 
     if t, has := rt.controllers[route.Controller]; has {
-        controller := rt.controller(t, r, p)
+        c := rt.controller(t, r, p)
+        rt.TriggerEvent("controller_start", r, p, c)
 
         //if action not found check the NotFound method
-        action := controller.MethodByName(route.Action)
+        action := c.MethodByName(route.Action)
         if !action.IsValid() {
-            if nf := controller.MethodByName(NotFoundRoute.Action); nf.IsValid() {
-                action = nf
-            } else {
-                Panic(http.StatusNotFound, "page not found")
-            }
+            Panic(http.StatusNotFound, "page not found")
         }
-
+        
         //if controller has Init method, run it first
-        if init := controller.MethodByName("Init"); init.IsValid() {
+        if init := c.MethodByName("Init"); init.IsValid() {
             init.Call(nil)
         }
 
+        rt.TriggerEvent("action_start", r, p, c)
         action.Call(nil)
+        rt.TriggerEvent("action_end", r, p, c)
     } else {
         Panic(http.StatusNotFound, "page not found")
     }
@@ -156,14 +155,13 @@ func (rt *Router) handle(route *Route, r *Request, p *Response) {
 
 //initialize controller
 func (rt *Router) controller(t reflect.Type, r *Request, p *Response) reflect.Value {
-    controller := reflect.New(t)
-    controller.Elem().FieldByName("Controller").
+    c := reflect.New(t)
+    c.Elem().FieldByName("Controller").
             Set(reflect.ValueOf(Controller{
                     Request: r,
                     Response: p,
                     Layout: "layout"}))
-
-    return controller
+    return c
 }
 
 func (rt *Router) handleError(e interface{}, r *Request, p *Response) {
@@ -172,21 +170,17 @@ func (rt *Router) handleError(e interface{}, r *Request, p *Response) {
             return
         }
 
-        if t, has := rt.controllers[ServerErrorRoute.Controller]; has {
-            controller := rt.controller(t, r, p)
-            if action := controller.MethodByName(ServerErrorRoute.Action);
-                    action.IsValid() {
+        rt.TriggerEvent("error", r, p, err)
 
-                action.Call([]reflect.Value{reflect.ValueOf(err)})
-                return
+        if !p.Sent {
+            if r.IsAjax() {
+                json,_ := json.Marshal(err)
+                p.Write(json)
+            } else {
+                p.Write([]byte(err.String()))
             }
-        }
 
-        if r.IsAjax() {
-            json,_ := json.Marshal(err)
-            p.Write(json)
-        } else {
-            p.Write([]byte(err.String()))
+            p.Sent = true;
         }
     }
 
