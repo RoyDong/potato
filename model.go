@@ -39,7 +39,10 @@ func (m *Model) CreateFindStmt(query map[string]interface{}, order string, limit
         where = strings.Join(conditions, " AND ")
     }
 
-    if len(limit) == 1 {
+    if len(limit) == 0 {
+        stmt = fmt.Sprintf("SELECT %s FROM `%s` %s ORDER BY %s",
+                m.SqlColumnsPart(m.Columns), m.Table, where, order)
+    } else if len(limit) == 1 {
         stmt = fmt.Sprintf("SELECT %s FROM `%s` %s ORDER BY %s LIMIT %d",
                 m.SqlColumnsPart(m.Columns), m.Table, where, order, limit[0])
     } else if len(limit) == 2 {
