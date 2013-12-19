@@ -7,11 +7,14 @@ import (
     _"github.com/go-sql-driver/mysql"
 )
 
+type Scanner interface{
+    Scan(args ...interface{}) error
+}
+
 type Model struct {
     Table string
     Columns []string
 }
-
 
 func (m *Model) SqlColumnsPart(Columns []string) string {
     return "`" + strings.Join(Columns, "`,`") + "`"
@@ -135,7 +138,7 @@ func (m *Model) Update(data map[string]interface{}, query map[string]interface{}
 
 func (m *Model) Delete(query map[string]interface{}, limit ...int64) int64 {
     where, values := m.SqlWherePart(query)
-    stmt := fmt.Sprintf("DELETE `%s` %s %s", m.Table, where, m.SqlLimitPart(limit...))
+    stmt := fmt.Sprintf("DELETE FROM `%s` %s %s", m.Table, where, m.SqlLimitPart(limit...))
     result, e := D.Exec(stmt, values...)
     if e != nil {
         L.Println(e)
