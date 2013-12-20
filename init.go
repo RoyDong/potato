@@ -4,17 +4,18 @@ import (
     "os"
     "log"
     "fmt"
-    "strings"
     "net"
     "net/http"
+    "strings"
 )
 
 var (
     AppName = "a potato application"
     Version = "0.1.0"
     Env     = "prod"
-    Sock    = ""
+    SockFile= ""
     Port    = 37221
+    WSPort  = 81
 
     Dir     = &appDir{
         Config:     "config/",
@@ -24,12 +25,8 @@ var (
         Log:        "log/",
     }
 
-    Listener net.Listener
-    WS *http.Server
-
     L *Logger
     R *Router
-    S *http.Server
     D *DB
     T *Template
 )
@@ -43,7 +40,7 @@ type appDir struct {
 }
 
 func Init() {
-    fmt.Println("Starting...")
+    fmt.Print("Starting...")
     //initialize config
     config := new(Tree)
     if e := LoadYaml(&config.data, Dir.Config + "config.yml"); e != nil {
@@ -62,11 +59,17 @@ func Init() {
         SessionCookieName = v
     }
 
-    if v, ok := config.String("sock"); ok {
-        Sock = v
+    if v, ok := config.String("sock_file"); ok {
+        SockFile = v
     } else if v, ok := config.Int("port"); ok {
         Port = v
     }
+
+    if v, ok := config.Int("wsport"); ok {
+        WSPort = v
+    }
+
+
 
     if dir, ok := config.String("log_dir"); ok {
         dir = strings.Trim(dir, "./")
@@ -120,20 +123,28 @@ func Init() {
 
 func Serve() {
     var e error
-    if len(Sock) > 0 {
-        os.Remove(Sock)
-        Listener, e = net.Listen("unix", Sock)
-        os.Chmod(Sock, os.ModePerm)
+    var l net.Listener
+
+    if len(SockFile) > 0 {
+        os.Remove(SockFile)
+        l, e = net.Listen("unix", SockFile)
+        os.Chmod(SockFile, os.ModePerm)
     } else {
-        Listener, e = net.Listen("tcp", fmt.Sprintf(":%d", Port))
+        l, e = net.Listen("tcp", fmt.Sprintf(":%d", Port))
     }
 
     if e != nil {
         L.Fatal("failed to start listening", e)
     }
 
-    WS = &http.Server{Addr: fmt.Sprintf(":%d", WSPort), Handler: R}
-    S = &http.Server{Handler: R}
-    L.Println(S.Serve(Listener))
-    Listener.Close()
+    hs := &http.Server{Handler: R}
+    go hs.Serve(l)
+
+    ws := &http.Server{Addr: fmt.Sprintf(":%d", WSPort), Handler: R}
+    go ws.ListenAndServe()
+
+    fmt.Println("done")
+    //forever
+    select{}
+    l.Close()
 }

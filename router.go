@@ -82,10 +82,9 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     route, params := rt.Route(r.URL.Path)
     request := NewRequest(r, params)
     if r.Header.Get("Upgrade") == "websocket" {
-        L.Println(1)
         if conn := rt.ws.Conn(w, r); conn != nil {
             request.WSConn = conn
-            //defer conn.Close()
+            defer conn.Close()
         }
     }
 
