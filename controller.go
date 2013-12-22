@@ -1,8 +1,10 @@
 package potato
 
 import (
+    "reflect"
     "net/http"
     "encoding/json"
+    ws "code.google.com/p/go.net/websocket"
 )
 
 type Controller struct {
@@ -11,12 +13,14 @@ type Controller struct {
     Layout string
 }
 
-func NewController(r *Request, p *Response) *Controller {
-    return &Controller{
-        Request: r,
-        Response: p,
-        Layout: "layout",
-    }
+func NewController(t reflect.Type, r *Request, p *Response) reflect.Value {
+    c := reflect.New(t)
+    c.Elem().FieldByName("Controller").
+            Set(reflect.ValueOf(Controller{
+                    Request: r,
+                    Response: p,
+                    Layout: "layout"}))
+    return c
 }
 
 func (c *Controller) Redirect(url string) {
@@ -54,3 +58,30 @@ func (c *Controller) RenderJson(v interface{}) {
     c.Response.Sent = true
 }
 
+func (c *Controller) WSReceive() string {
+    var txt string
+    if e := ws.Message.Receive(c.Request.WSConn, &txt); e != nil {
+        L.Println(e)
+        return ""
+    }
+    
+    return txt
+}
+
+func (c *Controller) WSSend(txt string) bool {
+    if e := ws.Message.Send(c.Request.WSConn, txt); e != nil {
+        L.Println(e)
+        return false
+    }
+    
+    return true
+}
+
+func (c *Controller) WSSendJson(v interface{}) bool {
+    if e := ws.JSON.Send(c.Request.WSConn, v); e != nil {
+        L.Println(e)
+        return false
+    }
+
+    return true
+}

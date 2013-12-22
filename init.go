@@ -15,7 +15,6 @@ var (
     Env     = "prod"
     SockFile= ""
     Port    = 37221
-    WSPort  = 81
 
     Dir     = &appDir{
         Config:     "config/",
@@ -40,7 +39,6 @@ type appDir struct {
 }
 
 func Init() {
-    fmt.Print("Starting...")
     //initialize config
     config := new(Tree)
     if e := LoadYaml(&config.data, Dir.Config + "config.yml"); e != nil {
@@ -64,12 +62,6 @@ func Init() {
     } else if v, ok := config.Int("port"); ok {
         Port = v
     }
-
-    if v, ok := config.Int("wsport"); ok {
-        WSPort = v
-    }
-
-
 
     if dir, ok := config.String("log_dir"); ok {
         dir = strings.Trim(dir, "./")
@@ -137,14 +129,8 @@ func Serve() {
         L.Fatal("failed to start listening", e)
     }
 
-    hs := &http.Server{Handler: R}
-    go hs.Serve(l)
-
-    ws := &http.Server{Addr: fmt.Sprintf(":%d", WSPort), Handler: R}
-    go ws.ListenAndServe()
-
-    fmt.Println("done")
-    //forever
-    select{}
+    fmt.Println("work work")
+    s := &http.Server{Handler: R}
+    L.Println(s.Serve(l))
     l.Close()
 }

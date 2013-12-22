@@ -31,8 +31,8 @@ type PrefixedRoutes struct {
 }
 
 type Router struct {
-    ws ws.Server
     Event
+    ws ws.Server
 
     //all grouped routes
     routes []*PrefixedRoutes
@@ -81,7 +81,7 @@ func (rt *Router) LoadRouteConfig(filename string) {
 func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     route, params := rt.Route(r.URL.Path)
     request := NewRequest(r, params)
-    if r.Header.Get("Upgrade") == "websocket" {
+    if strings.ToLower(r.Header.Get("Upgrade")) == "websocket" {
         if conn := rt.ws.Conn(w, r); conn != nil {
             request.WSConn = conn
             defer conn.Close()
@@ -96,7 +96,7 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         rt.handleError(&Error{http.StatusNotFound, "page not found"},
                 request, response)
     } else {
-        rt.dispatch(route, request, response)
+        rt.Dispatch(route, request, response)
     }
 
     rt.TriggerEvent("request_end", request, response)
@@ -131,7 +131,7 @@ func (rt *Router) Route(path string) (*Route, map[string]string) {
     return nil, nil
 }
 
-func (rt *Router) dispatch(route *Route, r *Request, p *Response) {
+func (rt *Router) Dispatch(route *Route, r *Request, p *Response) {
 
     //handle panics
     defer func () {
@@ -141,7 +141,7 @@ func (rt *Router) dispatch(route *Route, r *Request, p *Response) {
     }()
 
     if t, has := rt.controllers[route.Controller]; has {
-        c := rt.controller(t, r, p)
+        c := NewController(t, r, p)
         rt.TriggerEvent("controller_start", r, p, c)
 
         //if action not found check the NotFound method
@@ -161,17 +161,6 @@ func (rt *Router) dispatch(route *Route, r *Request, p *Response) {
     } else {
         Panic(http.StatusNotFound, "page not found")
     }
-}
-
-//initialize controller
-func (rt *Router) controller(t reflect.Type, r *Request, p *Response) reflect.Value {
-    c := reflect.New(t)
-    c.Elem().FieldByName("Controller").
-            Set(reflect.ValueOf(Controller{
-                    Request: r,
-                    Response: p,
-                    Layout: "layout"}))
-    return c
 }
 
 func (rt *Router) handleError(e interface{}, r *Request, p *Response) {
