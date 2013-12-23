@@ -59,7 +59,8 @@ func Init() {
 
     if v, ok := config.String("sock_file"); ok {
         SockFile = v
-    } else if v, ok := config.Int("port"); ok {
+    }
+    if v, ok := config.Int("port"); ok {
         Port = v
     }
 
