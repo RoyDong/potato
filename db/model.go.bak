@@ -1,4 +1,4 @@
-package potato
+package orm
 
 import (
     "fmt"
@@ -6,10 +6,6 @@ import (
     "database/sql"
     _"github.com/go-sql-driver/mysql"
 )
-
-type Scanner interface{
-    Scan(args ...interface{}) error
-}
 
 type Model struct {
     Table string
@@ -41,7 +37,7 @@ func (m *Model) SqlWherePart(query map[string]interface{}) (string, []interface{
 
         where = "WHERE " + strings.Join(conditions, " AND ")
     }
-    
+
     return where, values
 }
 
@@ -51,7 +47,7 @@ func (m *Model) SqlLimitPart(limit ...int64) string {
     if length == 0 {
         return ""
     }
-    
+
     if length == 1 {
         return fmt.Sprintf("LIMIT %d", limit[0])
     }

@@ -1,8 +1,9 @@
-package potato
+package db
 
 import (
     "log"
     "fmt"
+    "github.com/roydong/potato"
     "database/sql"
     _"github.com/go-sql-driver/mysql"
 )
@@ -29,6 +30,26 @@ type dbConfig struct {
     DBname string
 }
 
+func SetConfig(c *potato.Tree) {
+    if v, ok := c.String("type"); ok {
+        DBConfig.Type = v
+    }
+    if v, ok := c.String("host"); ok {
+        DBConfig.Host = v
+    }
+    if v, ok := c.Int("port"); ok {
+        DBConfig.Port = v
+    }
+    if v, ok := c.String("user"); ok {
+        DBConfig.User = v
+    }
+    if v, ok := c.String("pass"); ok {
+        DBConfig.Pass = v
+    }
+    if v, ok := c.String("dbname"); ok {
+        DBConfig.DBname = v
+    }
+}
 
 type DB struct {
     *sql.DB
@@ -44,20 +65,4 @@ func NewDB() *DB {
     }
 
     return &DB{DB: db}
-}
-
-func (d *DB) Insert(stmt string, args ...interface{}) int64 {
-    result, e := d.Exec(stmt, args...)
-    if e != nil {
-        L.Println(e)
-        return 0
-    }
-
-    id, e := result.LastInsertId()
-    if e!= nil {
-        L.Println(e)
-        return 0
-    }
-
-    return id
 }

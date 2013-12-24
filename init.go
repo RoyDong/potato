@@ -24,9 +24,9 @@ var (
         Log:        "log/",
     }
 
+    C *Tree
     L *Logger
     R *Router
-    D *DB
     T *Template
 )
 
@@ -40,57 +40,37 @@ type appDir struct {
 
 func Init() {
     //initialize config
-    config := new(Tree)
-    if e := LoadYaml(&config.data, Dir.Config + "config.yml"); e != nil {
+    C = new(Tree)
+    if e := LoadYaml(&C.data, Dir.Config + "config.yml"); e != nil {
         log.Fatal(e)
     }
 
-    if name, ok := config.String("name"); ok {
+    if name, ok := C.String("name"); ok {
         AppName = name
     }
 
-    if env, ok := config.String("env"); ok {
+    if env, ok := C.String("env"); ok {
         Env = env
     }
 
-    if v, ok := config.String("session_cookie_name"); ok {
+    if v, ok := C.String("session_cookie_name"); ok {
         SessionCookieName = v
     }
 
-    if v, ok := config.String("sock_file"); ok {
+    if v, ok := C.String("sock_file"); ok {
         SockFile = v
     }
-    if v, ok := config.Int("port"); ok {
+    if v, ok := C.Int("port"); ok {
         Port = v
     }
 
-    if dir, ok := config.String("log_dir"); ok {
+    if dir, ok := C.String("log_dir"); ok {
         dir = strings.Trim(dir, "./")
         Dir.Log = dir + "/"
     }
-    if dir, ok := config.String("session_dir"); ok {
+    if dir, ok := C.String("session_dir"); ok {
         dir = strings.Trim(dir, "./")
         SessionDir = dir + "/"
-    }
-
-    //db config
-    if v, ok := config.String("sql.type"); ok {
-        DBConfig.Type = v
-    }
-    if v, ok := config.String("sql.host"); ok {
-        DBConfig.Host = v
-    }
-    if v, ok := config.Int("sql.port"); ok {
-        DBConfig.Port = v
-    }
-    if v, ok := config.String("sql.user"); ok {
-        DBConfig.User = v
-    }
-    if v, ok := config.String("sql.pass"); ok {
-        DBConfig.Pass = v
-    }
-    if v, ok := config.String("sql.dbname"); ok {
-        DBConfig.DBname = v
     }
 
     //logger
@@ -104,9 +84,6 @@ func Init() {
     //router
     R = NewRouter()
     R.LoadRouteConfig(Dir.Config + "routes.yml")
-
-    //db
-    D = NewDB()
 
     //template
     T = NewTemplate(Dir.Template)
