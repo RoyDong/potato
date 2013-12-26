@@ -83,7 +83,7 @@ func (t *Tree) Value(path string) interface{} {
 /**
  * Sub returns a *Tree object stores the data found by path
  */
-func (t *Tree) Sub(path string) (*Tree, bool) {
+func (t *Tree) Tree(path string) (*Tree, bool) {
     if data, ok := t.find(strings.Split(path, ".")); ok {
         return &Tree{data}, true
     }

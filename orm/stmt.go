@@ -1,32 +1,48 @@
-package db
+package orm
 
 import (
     "fmt"
-    "strings"
+    "log"
     "regexp"
+    "strings"
+    "reflect"
+    "database/sql"
 )
 
-type Scanner interface{
+type Scanner interface {
     Scan(args ...interface{}) error
 }
 
 var stmtWhereSpace = regexp.MustCompile(`\s+`)
 
 type Stmt struct {
-    cols, from, join, where, group, order string
+    cols []string
+    alias map[string]string
+    from, join, where, group, order string
     offset, limit int64
     placeholders []string
     values []interface{}
 }
 
 func (s *Stmt) Select(cols string) *Stmt {
-    s.cols = cols
+    parts := strings.Split(cols, ",")
+    s.cols = make([]string, 0, len(parts))
+    for _,part := range parts {
+        if col := strings.Split(part, "."); len(col) == 2 {
+            t := strings.Trim(col[0], " `\n")
+            c := strings.Trim(col[1], " `\n")
+            if len(t) > 0 && len(c) > 0 {
+                s.cols = append(s.cols, fmt.Sprintf("`%s`.`%s` _%s_%s", t, c, t, c))
+            }
+        }
+    }
 
     return s
 }
 
-func (s *Stmt) From(table, alias string) *Stmt {
-    s.from = fmt.Sprintf("`%s` %s", table, alias)
+func (s *Stmt) From(name, alias string) *Stmt {
+    s.from = fmt.Sprintf("`%s` %s", name, alias)
+    s.alias[name] = alias
 
     return s
 }
@@ -125,4 +141,63 @@ func (s *Stmt) String() string {
     }
 
     return ""
+}
+
+type Select struct {
+    cols []string
+}
+
+
+type Rows struct {
+    sql.Rows
+}
+
+var columnRegexp = regexp.MustCompile(`^_(\d+)_(\d+)`)
+
+func (r *Rows) Scan(args ...interface{}) {
+    for _,v := range args {
+        elem := reflect.TypeOf(v).Elem()
+    }
+
+    for _,col := range r.Columns() {
+        var alias, name string
+        if info := columnRegexp.FindStringSubmatch(col); len(info) == 2 {
+            alias = info[0]
+            name = info[1]
+        } else {
+            name = col 
+        }
+    
+        i := 
+    }
+}
+
+
+type Model struct {
+    table string
+    cols, colsType []string
+    entity reflect.Type
+}
+
+var tables = make(map[string]string)
+var models = make(map[string]*Model)
+
+func NewModel(table string, v interface{}) *Model {
+    elem := reflect.TypeOf(v).Elem()
+    cols := make([]string, 0, elem.NumField())
+    colsType := make([]string, 0, elem.NumField())
+
+    for i := 0; i < elem.NumField(); i++ {
+        tag := elem.Field(i).Tag
+        if name := tag.Get("name"); len(name) > 0 {
+            cols = append(cols, name)
+            colsType = append(colsType, tag.Get("type"))
+        }
+    }
+
+    model := &Model{table, cols, colsType, elem}
+    tables[elem.Name()] = table
+    models[elem.Name()] = model
+
+    return model
 }

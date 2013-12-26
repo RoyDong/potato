@@ -7,16 +7,18 @@ import (
     "net"
     "net/http"
     "strings"
+    "database/sql"
+    _"github.com/go-sql-driver/mysql"
 )
 
 var (
-    AppName = "a potato application"
-    Version = "0.1.0"
-    Env     = "prod"
-    SockFile= ""
-    Port    = 37221
+    AppName  = "a potato application"
+    Version  = "0.1.0"
+    Env      = "prod"
+    SockFile = ""
+    Port     = 37221
 
-    Dir     = &appDir{
+    Dir      = &appDir{
         Config:     "config/",
         Controller: "controller/",
         Model:      "model/",
@@ -24,10 +26,20 @@ var (
         Log:        "log/",
     }
 
+    DBConfig = &dbConfig{
+        Type: "mysql",
+        Host: "localhost",
+        Port: 3306,
+        User: "root",
+        Pass: "",
+        DBname: "",
+    }
+
     C *Tree
-    L *Logger
+    L *log.Logger
     R *Router
     T *Template
+    D *sql.DB
 )
 
 type appDir struct {
@@ -36,6 +48,15 @@ type appDir struct {
     Model string
     Template string
     Log string
+}
+
+type dbConfig struct {
+    Type string
+    Host string
+    Port int
+    User string
+    Pass string
+    DBname string
 }
 
 func Init() {
@@ -79,7 +100,8 @@ func Init() {
     if e != nil {
         log.Fatal("Error init log file:", e)
     }
-    L = NewLogger(file)
+
+    L = log.New(file, "", log.LstdFlags)
 
     //router
     R = NewRouter()
@@ -88,7 +110,52 @@ func Init() {
     //template
     T = NewTemplate(Dir.Template)
 
+    if v, ok := C.Tree("sql"); ok {
+        InitDB(v)
+    }
+
     SessionStart()
+}
+
+func InitDB(c *Tree) {
+    if v, ok := c.String("type"); ok {
+        DBConfig.Type = v
+    }
+    if v, ok := c.String("host"); ok {
+        DBConfig.Host = v
+    }
+    if v, ok := c.Int("port"); ok {
+        DBConfig.Port = v
+    }
+    if v, ok := c.String("user"); ok {
+        DBConfig.User = v
+    }
+    if v, ok := c.String("pass"); ok {
+        DBConfig.Pass = v
+    }
+    if v, ok := c.String("dbname"); ok {
+        DBConfig.DBname = v
+    }
+
+    D = NewDB()
+}
+
+func NewDB() *sql.DB {
+    var db *sql.DB
+    var e error
+
+    dsn := fmt.Sprintf("%s:%s@(%s:%d)/%s", DBConfig.User,
+            DBConfig.Pass, DBConfig.Host, DBConfig.Port, DBConfig.DBname)
+
+    if db, e = sql.Open(DBConfig.Type, dsn); e != nil {
+        log.Fatal(e)
+    }
+
+    if e = db.Ping(); e != nil {
+        log.Fatal(e)
+    }
+
+    return db
 }
 
 func Serve() {
@@ -98,13 +165,19 @@ func Serve() {
     if len(SockFile) > 0 {
         os.Remove(SockFile)
         l, e = net.Listen("unix", SockFile)
-        os.Chmod(SockFile, os.ModePerm)
-    } else {
+        if e != nil {
+            L.Println("fail to open socket file", e)
+        } else {
+            os.Chmod(SockFile, os.ModePerm)
+        }
+    }
+
+    if l == nil {
         l, e = net.Listen("tcp", fmt.Sprintf(":%d", Port))
     }
 
     if e != nil {
-        L.Fatal("failed to start listening", e)
+        L.Fatal(e)
     }
 
     fmt.Println("work work")
