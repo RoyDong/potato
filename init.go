@@ -95,13 +95,19 @@ func Init() {
     }
 
     //logger
-    file, e := os.OpenFile(Dir.Log + Env + ".log",
-            os.O_CREATE | os.O_WRONLY | os.O_APPEND, 0666)
-    if e != nil {
-        log.Fatal("Error init log file:", e)
+    var logio *os.File
+    if Env == "dev" {
+        logio = os.Stdout
+    } else {
+        var e error
+        logio, e = os.OpenFile(Dir.Log + Env + ".log",
+                os.O_CREATE | os.O_WRONLY | os.O_APPEND, 0666)
+        if e != nil {
+            log.Fatal("Error init log file:", e)
+        }
     }
 
-    L = log.New(file, "", log.LstdFlags)
+    L = log.New(logio, "", log.LstdFlags)
 
     //router
     R = NewRouter()
