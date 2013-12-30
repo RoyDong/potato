@@ -13,12 +13,6 @@ import (
 
 var (
     placeholderRegexp = regexp.MustCompile(`:\w+`)
-
-    columnTypes = []string{"bool", "int", "float", "string", "time"}
-
-    tables = map[string]string{"User": "user"}
-
-    models = make(map[string]*Model)
 )
 
 
@@ -30,14 +24,18 @@ type Stmt struct {
     where, group, order string
     offset, limit int64
     placeholders []string
-    values []interface{}
+
+    result map[string]map[int64]reflect.Value
+    fields map[string]reflect.Value
+    times map[string]reflect.Value
+    index int64
 }
 
 func NewStmt() *Stmt {
     return &Stmt {
-        orms: make(map[string]string),
-        joins: make([]string, 0),
-        placeholders: make([]string, 0),
+        orms: make(map[string]string, 5),
+        joins: make([]string, 0, 5),
+        placeholders: make([]string, 0, 5),
     }
 }
 
@@ -139,7 +137,15 @@ func (s *Stmt) String() string {
     return ""
 }
 
-func (s *Stmt) Query(params map[string]interface{}) *Rows {
+func (s *Stmt) Alias(name string) string {
+    if name == s.from {
+        return s.alias
+    }
+
+    return s.orms[name]
+}
+
+func (s *Stmt) Query(params map[string]interface{}) *Stmt {
     stmt := s.String()
     values := make([]interface{}, 0, len(params))
     for _,p := range s.placeholders {
@@ -149,116 +155,100 @@ func (s *Stmt) Query(params map[string]interface{}) *Rows {
     }
 
     if len(values) != len(s.placeholders) {
-        panic("stmt query: missing params")
+        panic("orm: missing stmt params")
     }
 
     rows, e := D.Query(stmt, values...)
     if e != nil {
         L.Println(e)
-        return nil
     }
 
+    if e := s.scan(rows); e != nil {
+        L.Println(e)
+    }
+
+    return s
+}
+
+func (s *Stmt) scan(rows *sql.Rows) error {
     columns, e := rows.Columns()
     if e != nil {
-        L.Println(e)
-        return nil
-    }
-
-    r := &Rows{rows, columns, s.orms}
-    r.alias[s.from] = s.alias
-    return r
-}
-
-type Rows struct {
-    *sql.Rows
-    columns []string
-    alias map[string]string
-}
-
-
-func (r *Rows) Scan(args ...interface{}) error {
-    length := 0
-    values := make([]reflect.Value, 0, len(args))
-    for _,arg := range args {
-        v := reflect.Indirect(reflect.ValueOf(arg))
-        length = length + v.NumField()
-        values = append(values, v)
-    }
-
-    fields := make(map[string]reflect.Value, length)
-    times := make([]reflect.Value, 0, length)
-    for _,v := range values {
-        for i := 0; i < v.NumField(); i++ {
-            t := v.Type()
-            f := t.Field(i)
-            col := fmt.Sprintf("_%s_%s", r.alias[t.Name()], f.Tag)
-
-            if f.Type.Name() == "Time" {
-                times = append(times, v.Field(i))
-            } else {
-                fields[col] = v.Field(i)
-            }
-        }
-    }
-
-    row := make([]interface{}, 0, len(r.columns))
-    index := make([]int, 0, len(times))
-    for i, col := range r.columns {
-        if f, ok := fields[col]; ok {
-            row = append(row, f.Addr().Interface())
-        } else {
-            var v int64
-            row = append(row, &v)
-            index = append(index, i)
-        }
-    }
-
-    r.Rows.Next()
-    if e := r.Rows.Scan(row...); e != nil {
         return e
     }
 
-    for i, k := range index {
-        v := row[k].(*int64)
-        t := time.Unix(0, *v)
-        times[i].Set(reflect.ValueOf(t))
+    length := len(columns)
+    s.result = make(map[string]map[int64]reflect.Value, len(s.orms) + 1)
+    s.result[s.from] = make(map[int64]reflect.Value, length)
+    for n := range s.orms {
+        s.result[n] = make(map[int64]reflect.Value, length)
+    }
+
+    for rows.Next() {
+        if e := s.scanRow(rows, columns); e != nil {
+            return e
+        }
     }
 
     return nil
 }
 
+func (s *Stmt) scanRow(rows *sql.Rows, columns []string) error {
+    fields := make(map[string]reflect.Value, len(columns))
+    times := make(map[string]reflect.Value, 10)
+    ids := make(map[string]*int64, len(s.orms) + 1)
+    values := make(map[string]reflect.Value, len(s.orms) + 1)
+    values[s.from] = reflect.Indirect(reflect.New(models[s.from].Entity))
+    for n := range s.orms {
+        values[n] = reflect.Indirect(reflect.New(models[n].Entity))
+    }
 
-type Model struct {
-    table string
-    cols, colsType []string
-    entity reflect.Type
-}
-
-func NewModel(table string, v interface{}) *Model {
-    elem := reflect.Indirect(reflect.ValueOf(v)).Type()
-    length := elem.NumField()
-    cols := make([]string, 0, length)
-    colsType := make([]string, 0, length)
-
-    for i := 0; i < length; i++ {
-        if tag := elem.Field(i).Tag; len(tag) > 0 {
-            cols = append(cols, string(tag))
+    for _,v := range values {
+        for i := 0; i < v.NumField(); i++ {
+            vt := v.Type()
+            ft := vt.Field(i)
+            if col := ft.Tag.Get("column"); len(col) > 0 {
+                k := fmt.Sprintf("_%s_%s", s.Alias(vt.Name()), col)
+                if col == "id" {
+                    var id int64
+                    ids[k] = &id
+                } else if ft.Type.Name() == "Time" {
+                    times[k] = v.Field(i)
+                } else {
+                    fields[k] = v.Field(i)
+                }
+            }
         }
     }
 
-    model := &Model{table, cols, colsType, elem}
-    tables[elem.Name()] = table
-    models[elem.Name()] = model
-
-    return model
-}
-
-func (m *Model) ColumnIndex(col string) int {
-    for i, v := range m.cols {
-        if v == col {
-            return i
+    index := make(map[string]int, len(times))
+    row := make([]interface{}, 0, len(columns))
+    for i, k := range columns {
+        if f, ok := fields[k]; ok {
+            row = append(row, f.Addr().Interface())
+        } else if f, ok := ids[k]; ok {
+            row = append(row, f)
+        } else {
+            var v int64
+            row = append(row, &v)
+            index[k] = i
         }
     }
 
-    return -1
+    if e := rows.Scan(row...); e != nil {
+        return e
+    }
+
+    for k, i := range index {
+        v := row[i].(*int64)
+        times[k].Set(reflect.ValueOf(time.Unix(0, *v)))
+    }
+
+    for n, res := range s.result {
+        id := *(ids[fmt.Sprintf("_%s_id", s.Alias(n))])
+        if _, ok := res[id]; !ok {
+            res[id] = values[n]
+        }
+    }
+
+    return nil
 }
