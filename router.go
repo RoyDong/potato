@@ -53,7 +53,7 @@ func NewRouter() *Router {
  */
 func (rt *Router) SetControllers(cs map[string]interface{}) {
     for n, c := range cs {
-        elem := reflect.ValueOf(c).Elem()
+        elem := reflect.Indirect(reflect.ValueOf(c))
 
         //Controller must embeded from potato.Controller
         if elem.FieldByName("Controller").CanSet() {

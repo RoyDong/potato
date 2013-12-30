@@ -2,7 +2,7 @@ package orm
 
 import (
     "fmt"
-    "log"
+    "time"
     "regexp"
     "strings"
     "reflect"
@@ -12,7 +12,7 @@ import (
 
 var (
     placeholderRegexp = regexp.MustCompile(`:\w+`)
-    columnAliasRegexp = regexp.MustCompile(`^_(\w+)_(\w+)$`)
+    columnAliasRegexp = regexp.MustCompile(`^_([a-zA-Z]+)_(.*)$`)
 
     columnTypes = []string{"bool", "int64", "float64", "string", "time"}
     tables = map[string]string{"User": "user"}
@@ -152,6 +152,7 @@ func (s *Stmt) String() string {
 }
 
 func (s *Stmt) Query(params map[string]interface{}) *Rows {
+    stmt := s.String()
     values := make([]interface{}, 0, len(params))
     for _,n := range s.placeholders {
         if v, ok := params[n]; ok {
@@ -159,7 +160,11 @@ func (s *Stmt) Query(params map[string]interface{}) *Rows {
         }
     }
 
-    rows, e := D.Query(s.String(), values...)
+    if len(values) != len(s.placeholders) {
+        panic("stmt query: missing params")
+    }
+
+    rows, e := D.Query(stmt, values...)
     if e != nil {
         L.Println(e)
         return nil
@@ -175,39 +180,63 @@ func (s *Stmt) Query(params map[string]interface{}) *Rows {
 }
 
 type Rows struct {
-    sql.Rows
+    *sql.Rows
     columns []string
     alias map[string]string
 }
 
 
 func (r *Rows) Scan(args ...interface{}) error {
-    container := make([]interface{}, 0, len(r.columns))
-    for i := range r.columns {
+    row := make([]interface{}, 0, len(r.columns))
+    for _= range r.columns {
         var v interface{}
-        container = append(container, &v)
+        row = append(row, &v)
     }
 
-    if e := r.Rows.Scan(container...); e != nil {
+    r.Rows.Next()
+    if e := r.Rows.Scan(result...); e != nil {
         return e
     }
 
+    length := 0
+    values := make([]reflect.Value, 0, len(args))
+    for _,arg := range args {
+        v := reflect.Indirect(reflect.ValueOf(arg))
+        length = length + v.NumField()
+        values = append(values, v)
+    }
+
+    fields := make(map[string]reflect.Value, length)
+    for _,v := range values {
+        for i := 0; i < v.NumField(); i++ {
+            t := v.Type()
+            col := fmt.Sprintf("_%s_%s", r.alias[t.Name()], t.Field(i).Tag.Get("name"))
+            row[col] = v.Field(i)
+        }
+    }
+
     for i, col := range r.columns {
+        if raw := reflect.Indirect(reflect.ValueOf(row[i])).Interface(); raw != nil {
+            v := reflect.ValueOf(raw)
+            f := fields[col]
 
-    }
-
-    for _,v := range args {
-        elem := reflect.TypeOf(v).Elem()
-        log.Println(elem)
-    }
-
-    if columns, e := r.Columns(); e != nil {
-        for _,col := range columns {
-            if info := columnAliasRegexp.FindStringSubmatch(col); len(info) == 2 {
-                log.Println(info)
+            switch f.Kind() {
+            case reflect.Int64, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
+                f.SetInt(v.Int())
+            case reflect.String:
+                f.SetString(string(v.Bytes()))
+            case reflect.Bool:
+                f.SetBool(v.Int() > 0)
+            case reflect.Struct:
+                t := time.Unix(0, v.Int())
+                f.Set(reflect.ValueOf(t))
+            case reflect.Float32, reflect.Float64:
+                f.SetFloat(v.Float())
             }
         }
     }
+
+    return nil
 }
 
 
@@ -218,7 +247,7 @@ type Model struct {
 }
 
 func NewModel(table string, v interface{}) *Model {
-    elem := reflect.TypeOf(v).Elem()
+    elem := reflect.Indirect(reflect.ValueOf(v)).Type()
     length := elem.NumField()
     cols := make([]string, 0, length)
     colsType := make([]string, 0, length)
