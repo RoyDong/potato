@@ -2,6 +2,7 @@ package orm
 
 import (
     "fmt"
+    "log"
     "time"
     "regexp"
     "strings"
@@ -12,18 +13,21 @@ import (
 
 var (
     placeholderRegexp = regexp.MustCompile(`:\w+`)
-    columnAliasRegexp = regexp.MustCompile(`^_([a-zA-Z]+)_(.*)$`)
 
-    columnTypes = []string{"bool", "int64", "float64", "string", "time"}
+    columnTypes = []string{"bool", "int", "float", "string", "time"}
+
     tables = map[string]string{"User": "user"}
+
     models = make(map[string]*Model)
 )
 
 
 type Stmt struct {
     cols []string
-    alias map[string]string
-    from, join, where, group, order string
+    from, alias string
+    orms map[string]string
+    joins []string
+    where, group, order string
     offset, limit int64
     placeholders []string
     values []interface{}
@@ -31,21 +35,21 @@ type Stmt struct {
 
 func NewStmt() *Stmt {
     return &Stmt {
-        alias: make(map[string]string),
+        orms: make(map[string]string),
+        joins: make([]string, 0),
         placeholders: make([]string, 0),
     }
 }
-
 
 func (s *Stmt) Select(cols string) *Stmt {
     parts := strings.Split(cols, ",")
     s.cols = make([]string, 0, len(parts))
     for _,part := range parts {
+        part = strings.Trim(part, " ")
         if col := strings.Split(part, "."); len(col) == 2 {
-            t := strings.Trim(col[0], " `")
-            c := strings.Trim(col[1], " `")
-            if len(t) > 0 && len(c) > 0 {
-                s.cols = append(s.cols, fmt.Sprintf("`%s`.`%s` _%s_%s", t, c, t, c))
+            if len(col[0]) > 0 && len(col[1]) > 0 {
+                s.cols = append(s.cols, fmt.Sprintf(
+                        "`%s`.`%s` _%s_%s", col[0], col[1], col[0], col[1]))
             }
         }
     }
@@ -53,40 +57,34 @@ func (s *Stmt) Select(cols string) *Stmt {
     return s
 }
 
-
 func (s *Stmt) From(name, alias string) *Stmt {
-    if table, ok := tables[name]; ok {
-        s.from = fmt.Sprintf("`%s` %s", table, alias)
-        s.alias[name] = alias
-    }
+    s.from = name
+    s.alias = alias
 
     return s
 }
 
-
 func (s *Stmt) LeftJoin(name, alias, on string) *Stmt {
-    return s.Join("left", name, alias, on)
+    return s.Join("LEFT", name, alias, on)
 }
 
 
 func (s *Stmt) InnerJoin(name, alias, on string) *Stmt {
-    return s.Join("inner", name, alias, on)
+    return s.Join("INNER", name, alias, on)
 }
 
-
 func (s *Stmt) RightJoin(name, alias, on string) *Stmt {
-    return s.Join("right", name, alias, on)
+    return s.Join("RIGHT", name, alias, on)
 }
 
 func (s *Stmt) Join(t, name, alias, on string) *Stmt {
     if table, ok := tables[name]; ok {
-        s.join = fmt.Sprintf("%s JOIN `%s` %s ON %s", strings.ToUpper(t), table, alias, on)
-        s.alias[name] = alias
+        s.joins = append(s.joins, fmt.Sprintf("%s JOIN `%s` %s ON %s", t, table, alias, on))
+        s.orms[name] = alias
     }
 
     return s
 }
-
 
 func (s *Stmt) Offset(offset int64) *Stmt {
     s.offset = offset
@@ -94,13 +92,11 @@ func (s *Stmt) Offset(offset int64) *Stmt {
     return s
 }
 
-
 func (s *Stmt) Limit(limit int64) *Stmt {
     s.limit = limit
 
     return s
 }
-
 
 func (s *Stmt) Group(group string) *Stmt {
     s.group = group
@@ -122,18 +118,10 @@ func (s *Stmt) Where(where string) *Stmt {
     return s
 }
 
-func (s *Stmt) Values(v map[string]interface{}) *Stmt {
-    for _,p := range s.placeholders {
-        s.values = append(s.values, v[p])
-    }
-
-    return s
-}
-
 func (s *Stmt) String() string {
     if len(s.cols) > 0 {
-        stmt := fmt.Sprintf("SELECT %s FROM %s %s %s %s %s",
-                strings.Join(s.cols, ","), s.from, s.join, s.where, s.group, s.order)
+        stmt := fmt.Sprintf("SELECT %s FROM %s %s %s %s %s %s",
+                strings.Join(s.cols, ","), tables[s.from], s.alias, strings.Join(s.joins, " "), s.where, s.group, s.order)
 
         if s.limit != 0 {
             stmt = fmt.Sprintf("%s LIMIT %d,%d", stmt, s.offset, s.limit)
@@ -154,8 +142,8 @@ func (s *Stmt) String() string {
 func (s *Stmt) Query(params map[string]interface{}) *Rows {
     stmt := s.String()
     values := make([]interface{}, 0, len(params))
-    for _,n := range s.placeholders {
-        if v, ok := params[n]; ok {
+    for _,p := range s.placeholders {
+        if v, ok := params[p]; ok {
             values = append(values, v)
         }
     }
@@ -176,7 +164,9 @@ func (s *Stmt) Query(params map[string]interface{}) *Rows {
         return nil
     }
 
-    return &Rows{rows, columns, s.alias}
+    r := &Rows{rows, columns, s.orms}
+    r.alias[s.from] = s.alias
+    return r
 }
 
 type Rows struct {
@@ -187,17 +177,6 @@ type Rows struct {
 
 
 func (r *Rows) Scan(args ...interface{}) error {
-    row := make([]interface{}, 0, len(r.columns))
-    for _= range r.columns {
-        var v interface{}
-        row = append(row, &v)
-    }
-
-    r.Rows.Next()
-    if e := r.Rows.Scan(result...); e != nil {
-        return e
-    }
-
     length := 0
     values := make([]reflect.Value, 0, len(args))
     for _,arg := range args {
@@ -207,33 +186,42 @@ func (r *Rows) Scan(args ...interface{}) error {
     }
 
     fields := make(map[string]reflect.Value, length)
+    times := make([]reflect.Value, 0, length)
     for _,v := range values {
         for i := 0; i < v.NumField(); i++ {
             t := v.Type()
-            col := fmt.Sprintf("_%s_%s", r.alias[t.Name()], t.Field(i).Tag.Get("name"))
-            row[col] = v.Field(i)
+            f := t.Field(i)
+            col := fmt.Sprintf("_%s_%s", r.alias[t.Name()], f.Tag)
+
+            if f.Type.Name() == "Time" {
+                times = append(times, v.Field(i))
+            } else {
+                fields[col] = v.Field(i)
+            }
         }
     }
 
+    row := make([]interface{}, 0, len(r.columns))
+    index := make([]int, 0, len(times))
     for i, col := range r.columns {
-        if raw := reflect.Indirect(reflect.ValueOf(row[i])).Interface(); raw != nil {
-            v := reflect.ValueOf(raw)
-            f := fields[col]
-
-            switch f.Kind() {
-            case reflect.Int64, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
-                f.SetInt(v.Int())
-            case reflect.String:
-                f.SetString(string(v.Bytes()))
-            case reflect.Bool:
-                f.SetBool(v.Int() > 0)
-            case reflect.Struct:
-                t := time.Unix(0, v.Int())
-                f.Set(reflect.ValueOf(t))
-            case reflect.Float32, reflect.Float64:
-                f.SetFloat(v.Float())
-            }
+        if f, ok := fields[col]; ok {
+            row = append(row, f.Addr().Interface())
+        } else {
+            var v int64
+            row = append(row, &v)
+            index = append(index, i)
         }
+    }
+
+    r.Rows.Next()
+    if e := r.Rows.Scan(row...); e != nil {
+        return e
+    }
+
+    for i, k := range index {
+        v := row[k].(*int64)
+        t := time.Unix(0, *v)
+        times[i].Set(reflect.ValueOf(t))
     }
 
     return nil
@@ -253,10 +241,8 @@ func NewModel(table string, v interface{}) *Model {
     colsType := make([]string, 0, length)
 
     for i := 0; i < length; i++ {
-        tag := elem.Field(i).Tag
-        if name := tag.Get("name"); len(name) > 0 {
-            cols = append(cols, name)
-            colsType = append(colsType, tag.Get("type"))
+        if tag := elem.Field(i).Tag; len(tag) > 0 {
+            cols = append(cols, string(tag))
         }
     }
 
