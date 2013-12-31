@@ -4,6 +4,7 @@ import (
     "fmt"
     "regexp"
     "strings"
+    "database/sql"
 )
 
 
@@ -27,21 +28,38 @@ type Stmt struct {
     orms map[string]string
     names map[string]string
     joins []string
+    updates []string
     orders []string
     where, group string
     offset, limit int64
     placeholders []string
+
+    stmt string
 }
 
 func NewStmt() *Stmt {
-    return &Stmt {
-        allSelected: make([]string, 0, 5),
-        orms: make(map[string]string, 5),
-        names: make(map[string]string, 5),
-        joins: make([]string, 0, 5),
-        orders: make([]string, 0, 5),
-        placeholders: make([]string, 0, 5),
-    }
+    return new(Stmt).Clear()
+}
+
+func (s *Stmt) Clear() *Stmt {
+    s.allSelected  = make([]string, 0, 5)
+    s.orms         = make(map[string]string, 5)
+    s.names        = make(map[string]string, 5)
+    s.joins        = make([]string, 0, 5)
+    s.updates      = make([]string, 0, 10)
+    s.orders       = make([]string, 0, 5)
+    s.placeholders = make([]string, 0, 5)
+
+    s.cols   = nil
+    s.from   = ""
+    s.alias  = ""
+    s.where  = ""
+    s.group  = ""
+    s.offset = 0
+    s.limit  = 0
+    s.stmt   = ""
+
+    return s
 }
 
 func (s *Stmt) Select(cols string) *Stmt {
@@ -54,8 +72,8 @@ func (s *Stmt) Select(cols string) *Stmt {
                 if col[1] == "*" {
                     s.allSelected = append(s.allSelected, col[0])
                 } else {
-                    s.cols = append(s.cols, fmt.Sprintf(
-                        "`%s`.`%s` _%s_%s", col[0], col[1], col[0], col[1]))
+                    s.cols = append(s.cols,fmt.Sprintf("`%s`.`%s` _%s_%s",
+                            col[0], col[1], col[0], col[1]))
                 }
             }
         }
@@ -65,18 +83,49 @@ func (s *Stmt) Select(cols string) *Stmt {
     return s
 }
 
-func (s *Stmt) Count(name, alias string) *Stmt {
-    s.from = name
-    s.alias = alias
+func (s *Stmt) parseTableAlias(table string) (string, string) {
+    r := strings.SplitN(strings.Trim(table, " "), " ", 2)
+    t := r[0]
+    a := strings.Trim(r[1], " ")
+
+    if len(t) == 0 || len(a) == 0 {
+        panic("orm: table name and its alias not right")
+    }
+
+    return t, a
+}
+
+func (s *Stmt) Count(table string) *Stmt {
+    s.from, s.alias = s.parseTableAlias(table)
     s.names[s.alias] = s.from
     s.action = ActionCount
 
     return s
 }
 
-func (s *Stmt) From(name, alias string) *Stmt {
-    s.from = name
-    s.alias = alias
+func (s *Stmt) Delete(table string) *Stmt {
+    s.from = table
+    s.action = ActionDelete
+
+    return s
+}
+
+func (s *Stmt) Update(table string) *Stmt {
+    s.from, s.alias = s.parseTableAlias(table)
+    s.names[s.alias] = s.from
+    s.action = ActionUpdate
+
+    return s
+}
+
+func (s *Stmt) Set(u string) *Stmt {
+    s.updates = append(s.updates, u)
+
+    return s
+}
+
+func (s *Stmt) From(table string) *Stmt {
+    s.from, s.alias = s.parseTableAlias(table)
     s.names[s.alias] = s.from
 
     return s
@@ -85,7 +134,6 @@ func (s *Stmt) From(name, alias string) *Stmt {
 func (s *Stmt) LeftJoin(name, alias, on string) *Stmt {
     return s.Join("LEFT", name, alias, on)
 }
-
 
 func (s *Stmt) InnerJoin(name, alias, on string) *Stmt {
     return s.Join("INNER", name, alias, on)
@@ -143,36 +191,42 @@ func (s *Stmt) Where(where string) *Stmt {
     return s
 }
 
-func (s *Stmt) String() string {
-    if s.action == ActionCount {
-        return s.CountStmt()
+func (s *Stmt) deleteStmt() string {
+    s.stmt = fmt.Sprintf("DELETE FROM %s %s%s",
+            tables[s.from], s.where, s.order())
+
+    if s.limit != 0 {
+        s.stmt = fmt.Sprintf("%s LIMIT %d,%d", s.stmt, s.offset, s.limit)
     }
 
-    if s.action == ActionSelect {
-        return  s.SelectStmt()
-    }
+    s.stmt = placeholderRegexp.ReplaceAllStringFunc(s.stmt, s.replph)
 
-    return ""
+    return s.stmt
 }
 
-func (s *Stmt) CountStmt() string {
-    var order string
-    if len(s.orders) > 0 {
-        order = fmt.Sprintf(" ORDER BY %s", strings.Join(s.orders, ","))
+func (s *Stmt) updateStmt() string {
+    s.stmt = fmt.Sprintf("UPDATE %s %s%s SET %s%s%s",
+            tables[s.from], s.alias, strings.Join(s.joins, ""),
+            strings.Join(s.updates, ","), s.where, s.order())
+
+    if s.limit != 0 {
+        s.stmt = fmt.Sprintf("%s LIMIT %d,%d", s.stmt, s.offset, s.limit)
     }
 
-    stmt := fmt.Sprintf("SELECT COUNT(*) num FROM %s %s%s%s%s%s", tables[s.from],
-            s.alias, strings.Join(s.joins, ""), s.where, s.group, order)
+    s.stmt = placeholderRegexp.ReplaceAllStringFunc(s.stmt, s.replph)
 
-    stmt = placeholderRegexp.ReplaceAllStringFunc(stmt, func(sub string) string {
-        s.placeholders = append(s.placeholders, strings.TrimLeft(sub, ":"))
-        return "?"
-    })
-
-    return stmt
+    return s.stmt
 }
 
-func (s *Stmt) SelectStmt() string {
+func (s *Stmt) countStmt() string {
+    s.stmt = fmt.Sprintf("SELECT COUNT(*) num FROM %s %s%s%s%s", tables[s.from],
+            s.alias, strings.Join(s.joins, ""), s.where, s.group)
+    s.stmt = placeholderRegexp.ReplaceAllStringFunc(s.stmt, s.replph)
+
+    return s.stmt
+}
+
+func (s *Stmt) selectStmt() string {
     for _,k := range s.allSelected {
         n := s.names[k]
         if len(n) == 0 {
@@ -191,25 +245,29 @@ func (s *Stmt) SelectStmt() string {
     }
 
     if len(s.cols) > 0 {
-        var order string
-        if len(s.orders) > 0 {
-            order = fmt.Sprintf(" ORDER BY %s", strings.Join(s.orders, ","))
-        }
-
-        stmt := fmt.Sprintf("SELECT %s FROM %s %s%s%s%s%s",
+        s.stmt = fmt.Sprintf("SELECT %s FROM %s %s%s%s%s%s",
                 strings.Join(s.cols, ","), tables[s.from], s.alias,
-                strings.Join(s.joins, ""), s.where, s.group, order)
+                strings.Join(s.joins, ""), s.where, s.group, s.order())
 
         if s.limit != 0 {
-            stmt = fmt.Sprintf("%s LIMIT %d,%d", stmt, s.offset, s.limit)
+            s.stmt = fmt.Sprintf("%s LIMIT %d,%d", s.stmt, s.offset, s.limit)
         }
 
-        stmt = placeholderRegexp.ReplaceAllStringFunc(stmt, func(sub string) string {
-            s.placeholders = append(s.placeholders, strings.TrimLeft(sub, ":"))
-            return "?"
-        })
+        s.stmt = placeholderRegexp.ReplaceAllStringFunc(s.stmt, s.replph)
+        return s.stmt
+    }
 
-        return stmt
+    panic("orm: error format sql for potato orm")
+}
+
+func (s *Stmt) replph(sub string) string {
+    s.placeholders = append(s.placeholders, strings.TrimLeft(sub, ":"))
+    return "?"
+}
+
+func (s *Stmt) order() string {
+    if len(s.orders) > 0 {
+        return fmt.Sprintf(" ORDER BY %s", strings.Join(s.orders, ","))
     }
 
     return ""
@@ -230,25 +288,46 @@ func (s *Stmt) values(params map[string]interface{}) []interface{} {
     return values
 }
 
-func (s *Stmt) QueryNum(params map[string]interface{}) int64 {
-    stmt := s.CountStmt()
-    values := s.values(params)
-    rows, e := D.Query(stmt, values...)
+func (s *Stmt) Exec(params map[string]interface{}) int64 {
+    var n int64
+    if s.action == ActionCount {
+        rows, e := D.Query(s.countStmt(), s.values(params)...)
+        if e != nil {
+            L.Println(e)
+            return 0
+        }
+
+        rows.Next()
+        rows.Scan(&n)
+        return n
+    }
+
+    var result sql.Result
+    var e error
+    if s.action == ActionUpdate {
+        result, e = D.Exec(s.updateStmt(), s.values(params)...)
+    }
+
+    if s.action == ActionDelete {
+        result, e = D.Exec(s.deleteStmt(), s.values(params)...)
+    }
+
     if e != nil {
         L.Println(e)
         return 0
     }
 
-    var n int64
-    rows.Next()
-    rows.Scan(&n)
+    n, e = result.RowsAffected()
+    if e!= nil {
+        L.Println(e)
+        return 0
+    }
+
     return n
 }
 
 func (s *Stmt) Query(params map[string]interface{}) (*Rows, error) {
-    stmt := s.SelectStmt()
-    values := s.values(params)
-    rows, e := D.Query(stmt, values...)
+    rows, e := D.Query(s.selectStmt(), s.values(params)...)
     if e != nil {
         return nil, e
     }
@@ -265,4 +344,8 @@ func (s *Stmt) Query(params map[string]interface{}) (*Rows, error) {
     }
 
     return &Rows{rows, alias, columns}, nil
+}
+
+func (s *Stmt) String() string {
+    return s.stmt
 }
