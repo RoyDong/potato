@@ -5,10 +5,10 @@ import (
     "log"
     "fmt"
     "net"
-    "net/http"
     "strings"
+    "net/http"
     "database/sql"
-    _"github.com/go-sql-driver/mysql"
+    "github.com/roydong/potato/orm"
 )
 
 var (
@@ -118,6 +118,7 @@ func Init() {
 
     if v, ok := C.Tree("sql"); ok {
         InitDB(v)
+        orm.Init(D, L)
     }
 
     SessionStart()

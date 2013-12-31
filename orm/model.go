@@ -6,9 +6,8 @@ import (
 
 
 var (
-    tables = map[string]string{"User": "user"}
-
-    models = make(map[string]*Model)
+    tables = make(map[string]string, 20)
+    models = make(map[string]*Model, 20)
 )
 
 type Model struct {
@@ -18,19 +17,19 @@ type Model struct {
 }
 
 func NewModel(table string, v interface{}) *Model {
-    elem := reflect.Indirect(reflect.ValueOf(v)).Type()
-    length := elem.NumField()
+    t := reflect.Indirect(reflect.ValueOf(v)).Type()
+    length := t.NumField()
     cols := make([]string, 0, length)
 
     for i := 0; i < length; i++ {
-        if tag := elem.Field(i).Tag; len(tag) > 0 {
-            cols = append(cols, string(tag))
+        if col := t.Field(i).Tag.Get("column"); len(col) > 0 {
+            cols = append(cols, col)
         }
     }
 
-    model := &Model{table, cols, elem}
-    tables[elem.Name()] = table
-    models[elem.Name()] = model
+    model := &Model{table, cols, t}
+    tables[t.Name()] = table
+    models[t.Name()] = model
 
     return model
 }
