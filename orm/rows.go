@@ -13,7 +13,7 @@ type Rows struct {
     columns []string
 }
 
-func (r *Rows) Scan(dest ...interface{}) error {
+func (r *Rows) ScanStruct(dest ...interface{}) error {
     fields := make(map[string]reflect.Value, len(r.columns))
     times := make(map[string]reflect.Value, len(dest) * 2)
 
