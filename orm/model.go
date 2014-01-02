@@ -46,7 +46,7 @@ func (m *Model) Save(entity interface{}) bool {
     }
 
     var pk reflect.Value
-    var pkv int64
+    var pkv = int64(-1)
     n    := typ.NumField()
     cols := make([]string, 0, n)
     vals := make([]interface{}, 0, n)
