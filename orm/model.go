@@ -42,8 +42,8 @@ func Save(entity interface{}) bool {
     val  := reflect.Indirect(reflect.ValueOf(entity))
     typ  := val.Type()
     name := typ.Name()
-    table, ok := tables[name]
-    if !ok {
+    tbl  := tables[name]
+    if len(tbl) == 0 {
         panic("orm: entity not found")
     }
 
@@ -76,7 +76,7 @@ func Save(entity interface{}) bool {
         }
 
         stmt := fmt.Sprintf("INSERT INTO `%s` (%s)VALUES(%s)",
-                table, strings.Join(cs, ","), strings.Join(ph, ","))
+                tbl, strings.Join(cs, ","), strings.Join(ph, ","))
         result, e := D.Exec(stmt, vals...)
         if e != nil {
             L.Println(e)
@@ -99,7 +99,7 @@ func Save(entity interface{}) bool {
     }
 
     stmt := fmt.Sprintf("UPDATE `%s` SET %s WHERE `id` = %d",
-            table, strings.Join(sets, ","), pkv)
+            tbl, strings.Join(sets, ","), pkv)
     if _,e := D.Exec(stmt, vals...); e != nil {
         L.Println(e)
         return false

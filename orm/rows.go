@@ -16,7 +16,7 @@ type Rows struct {
 
 func (r *Rows) ScanEntity(entities ...interface{}) error {
     fields := make(map[string]reflect.Value, len(r.columns))
-    times := make(map[string]reflect.Value, len(entities) * 2)
+    times  := make(map[string]reflect.Value, len(entities) * 2)
     values := make([]reflect.Value, 0, len(entities))
     for _,entity := range entities {
         v := reflect.Indirect(reflect.ValueOf(entity))
@@ -28,16 +28,21 @@ func (r *Rows) ScanEntity(entities ...interface{}) error {
         values = append(values, reflect.Indirect(v))
     }
 
-    for _,v := range values {
-        for i := 0; i < v.NumField(); i++ {
-            vt := v.Type()
-            ft := vt.Field(i)
-            if col := ft.Tag.Get("column"); len(col) > 0 {
-                k := fmt.Sprintf("_%s_%s", r.alias[vt.Name()], col)
-                if ft.Type.Name() == "Time" {
-                    times[k] = v.Field(i)
+    for _,val := range values {
+        typ := val.Type()
+        ali := r.alias[typ.Name()]
+        if len(ali) == 0 {
+            panic("orm: data not found for entity " + typ.Name())
+        }
+
+        for i := 0; i < val.NumField(); i++ {
+            f := typ.Field(i)
+            if col := f.Tag.Get("column"); len(col) > 0 {
+                k := fmt.Sprintf("_%s_%s", ali, col)
+                if f.Type.Name() == "Time" {
+                    times[k] = val.Field(i)
                 } else {
-                    fields[k] = v.Field(i)
+                    fields[k] = val.Field(i)
                 }
             }
         }
