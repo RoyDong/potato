@@ -7,8 +7,6 @@ import (
     "net"
     "strings"
     "net/http"
-    "database/sql"
-    "github.com/roydong/potato/orm"
 )
 
 var (
@@ -26,20 +24,10 @@ var (
         Log:        "log/",
     }
 
-    DBConfig = &dbConfig{
-        Type: "mysql",
-        Host: "localhost",
-        Port: 3306,
-        User: "root",
-        Pass: "",
-        DBname: "",
-    }
-
     C *Tree
     L *log.Logger
     R *Router
     T *Template
-    D *sql.DB
 )
 
 type appDir struct {
@@ -48,15 +36,6 @@ type appDir struct {
     Model string
     Template string
     Log string
-}
-
-type dbConfig struct {
-    Type string
-    Host string
-    Port int
-    User string
-    Pass string
-    DBname string
 }
 
 func Init() {
@@ -116,53 +95,7 @@ func Init() {
     //template
     T = NewTemplate(Dir.Template)
 
-    if v, ok := C.Tree("sql"); ok {
-        InitDB(v)
-        orm.Init(D, L)
-    }
-
     SessionStart()
-}
-
-func InitDB(c *Tree) {
-    if v, ok := c.String("type"); ok {
-        DBConfig.Type = v
-    }
-    if v, ok := c.String("host"); ok {
-        DBConfig.Host = v
-    }
-    if v, ok := c.Int("port"); ok {
-        DBConfig.Port = v
-    }
-    if v, ok := c.String("user"); ok {
-        DBConfig.User = v
-    }
-    if v, ok := c.String("pass"); ok {
-        DBConfig.Pass = v
-    }
-    if v, ok := c.String("dbname"); ok {
-        DBConfig.DBname = v
-    }
-
-    D = NewDB()
-}
-
-func NewDB() *sql.DB {
-    var db *sql.DB
-    var e error
-
-    dsn := fmt.Sprintf("%s:%s@(%s:%d)/%s", DBConfig.User,
-            DBConfig.Pass, DBConfig.Host, DBConfig.Port, DBConfig.DBname)
-
-    if db, e = sql.Open(DBConfig.Type, dsn); e != nil {
-        log.Fatal(e)
-    }
-
-    if e = db.Ping(); e != nil {
-        log.Fatal(e)
-    }
-
-    return db
 }
 
 func Serve() {
