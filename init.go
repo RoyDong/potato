@@ -167,11 +167,11 @@ func NewDB() *sql.DB {
 
 func Serve() {
     var e error
-    var l net.Listener
+    var lsn net.Listener
 
     if len(SockFile) > 0 {
         os.Remove(SockFile)
-        l, e = net.Listen("unix", SockFile)
+        lsn, e = net.Listen("unix", SockFile)
         if e != nil {
             L.Println("fail to open socket file", e)
         } else {
@@ -179,8 +179,8 @@ func Serve() {
         }
     }
 
-    if l == nil {
-        l, e = net.Listen("tcp", fmt.Sprintf(":%d", Port))
+    if lsn == nil {
+        lsn, e = net.Listen("tcp", fmt.Sprintf(":%d", Port))
     }
 
     if e != nil {
@@ -189,6 +189,6 @@ func Serve() {
 
     fmt.Println("work work")
     s := &http.Server{Handler: R}
-    L.Println(s.Serve(l))
-    l.Close()
+    L.Println(s.Serve(lsn))
+    lsn.Close()
 }

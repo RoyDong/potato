@@ -373,6 +373,7 @@ func (s *Stmt) Exec(params map[string]interface{}) (int64, error) {
             e = rows.Scan(&n)
         }
 
+        rows.Close()
         return n, e
     }
 

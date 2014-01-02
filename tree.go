@@ -72,9 +72,9 @@ func (t *Tree) Set(path string, v interface{}, f bool) bool {
  */
 func (t *Tree) Value(path string) interface{} {
     nodes := strings.Split(path , ".")
-    l := len(nodes) - 1
-    if data, ok := t.find(nodes[:l]); ok {
-        return data[nodes[l]]
+    n := len(nodes) - 1
+    if data, ok := t.find(nodes[:n]); ok {
+        return data[nodes[n]]
     }
 
     return nil

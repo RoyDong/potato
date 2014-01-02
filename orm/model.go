@@ -20,10 +20,9 @@ type Model struct {
 
 func NewModel(table string, v interface{}) *Model {
     t := reflect.Indirect(reflect.ValueOf(v)).Type()
-    length := t.NumField()
-    cols := make([]string, 0, length)
-
-    for i := 0; i < length; i++ {
+    n := t.NumField()
+    cols := make([]string, 0, n)
+    for i := 0; i < n; i++ {
         if col := t.Field(i).Tag.Get("column"); len(col) > 0 {
             cols = append(cols, col)
         }
@@ -32,21 +31,24 @@ func NewModel(table string, v interface{}) *Model {
     model := &Model{table, cols, t}
     tables[t.Name()] = table
     models[t.Name()] = model
-
     return model
 }
 
 func (m *Model) Save(entity interface{}) bool {
-    val := reflect.Indirect(reflect.ValueOf(entity))
-    typ := val.Type()
+    return Save(entity)
+}
+
+func Save(entity interface{}) bool {
+    val  := reflect.Indirect(reflect.ValueOf(entity))
+    typ  := val.Type()
     name := typ.Name()
     table, ok := tables[name]
     if !ok {
-        panic("orm: entity not supported")
+        panic("orm: entity not found")
     }
 
     var pk reflect.Value
-    var pkv = int64(-1)
+    pkv  := int64(-1)
     n    := typ.NumField()
     cols := make([]string, 0, n)
     vals := make([]interface{}, 0, n)
@@ -62,7 +64,7 @@ func (m *Model) Save(entity interface{}) bool {
     }
 
     if pkv < 0 {
-        panic("orm: primary key not specified in any entity field tag")
+        panic("orm: primary key not specified in any field tag")
     }
 
     if pkv == 0 {
@@ -98,9 +100,7 @@ func (m *Model) Save(entity interface{}) bool {
 
     stmt := fmt.Sprintf("UPDATE `%s` SET %s WHERE `id` = %d",
             table, strings.Join(sets, ","), pkv)
-
-    _,e := D.Exec(stmt, vals...)
-    if e != nil {
+    if _,e := D.Exec(stmt, vals...); e != nil {
         L.Println(e)
         return false
     }
