@@ -8,8 +8,8 @@ import (
 
 
 var (
-    tables = make(map[string]string, 20)
-    models = make(map[string]*Model, 20)
+    tables = make(map[string]string)
+    models = make(map[string]*Model)
 )
 
 type Model struct {
@@ -36,89 +36,70 @@ func NewModel(table string, v interface{}) *Model {
     return model
 }
 
-func Insert(entity interface{}) bool {
-    value := reflect.Indirect(reflect.ValueOf(entity))
-    t := value.Type()
-    table, ok := tables[t.Name()]
+func (m *Model) Save(entity interface{}) bool {
+    val := reflect.Indirect(reflect.ValueOf(entity))
+    typ := val.Type()
+    name := typ.Name()
+    table, ok := tables[name]
     if !ok {
-        panic("orm: error entity var while using orm.Insert")
+        panic("orm: entity not supported")
     }
 
     var pk reflect.Value
-    var hasPk bool
-    l := value.NumField()
-    c := make([]string, 0, l)
-    h := make([]string, 0, l)
-    v := make([]interface{}, 0, l)
-    for i := 0; i < l; i++ {
-        n := t.Field(i).Tag.Get("column")
-        val := value.Field(i)
-        if n == "id" {
-            pk = val
-            hasPk = true
-        }
-
-        c = append(c, fmt.Sprintf("`%s`", n))
-        h = append(h, "?")
-        v = append(v, val.Interface())
-    }
-
-    if !hasPk {
-        panic("orm: primary key not specified for entity")
-    }
-
-    stmt := fmt.Sprintf("INSERT INTO `%s` (%s)VALUES(%s)",
-            table, strings.Join(c, ","), strings.Join(h, ","))
-
-    result, e := D.Exec(stmt, v...)
-    if e != nil {
-        L.Println(e)
-        return false
-    }
-
-    n, e := result.LastInsertId()
-    if e != nil {
-        L.Println(e)
-        return false
-    }
-
-    pk.SetInt(n)
-    return true
-}
-
-func Update(entity interface{}) bool {
-    value := reflect.Indirect(reflect.ValueOf(entity))
-    t := value.Type()
-    table, ok := tables[t.Name()]
-    if !ok {
-        panic("orm: error entity var while using orm.Update")
-    }
-
     var pkv int64
-    var pkn string
-    l := value.NumField()
-    c := make([]string, 0, l)
-    v := make([]interface{}, 0, l)
-    for i := 0; i < l; i++ {
-        n := t.Field(i).Tag.Get("column")
-        val := value.Field(i)
-        if n == "id" {
-            pkv = val.Int()
-            pkn = n
+    n    := typ.NumField()
+    cols := make([]string, 0, n)
+    vals := make([]interface{}, 0, n)
+    for i := 0; i < n; i++ {
+        f := val.Field(i)
+        col := typ.Field(i).Tag.Get("column")
+        cols = append(cols, col)
+        vals = append(vals, f.Interface())
+        if col == "id" {
+            pk = f
+            pkv = f.Int()
+        }
+    }
+
+    if pkv < 0 {
+        panic("orm: primary key not specified in any entity field tag")
+    }
+
+    if pkv == 0 {
+        cs := make([]string, 0, n)
+        ph := make([]string, 0, n)
+        for _,col := range cols {
+            cs = append(cs, fmt.Sprintf("`%s`", col))
+            ph = append(ph, "?")
         }
 
-        c = append(c, fmt.Sprintf("`%s` = ?", n))
-        v = append(v, val.Interface())
+        stmt := fmt.Sprintf("INSERT INTO `%s` (%s)VALUES(%s)",
+                table, strings.Join(cs, ","), strings.Join(ph, ","))
+        result, e := D.Exec(stmt, vals...)
+        if e != nil {
+            L.Println(e)
+            return false
+        }
+
+        n, e := result.LastInsertId()
+        if e != nil {
+            L.Println(e)
+            return false
+        }
+
+        pk.SetInt(n)
+        return true
     }
 
-    if pkv <= 0 {
-        panic("orm: primary key not specified for entity")
+    sets := make([]string, 0, n)
+    for _,col := range cols {
+        sets = append(sets, fmt.Sprintf("`%s` = ?", col))
     }
 
-    stmt := fmt.Sprintf("UPDATE `%s` SET %s WHERE `%s` = %d",
-            table, strings.Join(c, ","), pkn, pkv)
+    stmt := fmt.Sprintf("UPDATE `%s` SET %s WHERE `id` = %d",
+            table, strings.Join(sets, ","), pkv)
 
-    _,e := D.Exec(stmt, v...)
+    _,e := D.Exec(stmt, vals...)
     if e != nil {
         L.Println(e)
         return false
