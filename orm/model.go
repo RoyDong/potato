@@ -33,13 +33,3 @@ func NewModel(table string, v interface{}) *Model {
 
     return model
 }
-
-func (m *Model) ColumnIndex(col string) int {
-    for i, v := range m.Cols {
-        if v == col {
-            return i
-        }
-    }
-
-    return -1
-}

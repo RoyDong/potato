@@ -3,6 +3,7 @@ package orm
 import (
     "fmt"
     "time"
+    "errors"
     "reflect"
     "database/sql"
 )
@@ -13,15 +14,17 @@ type Rows struct {
     columns []string
 }
 
-func (r *Rows) ScanStruct(dest ...interface{}) error {
+func (r *Rows) ScanEntity(entities ...interface{}) error {
     fields := make(map[string]reflect.Value, len(r.columns))
-    times := make(map[string]reflect.Value, len(dest) * 2)
+    times := make(map[string]reflect.Value, len(entities) * 2)
+    values := make([]reflect.Value, 0, len(entities))
+    for _,entity := range entities {
+        v := reflect.Indirect(reflect.ValueOf(entity))
+        if v.Kind() != reflect.Ptr {
+            return errors.New("orm: must pass a pointer to Scan")
+        }
 
-    values := make([]reflect.Value, 0, len(dest))
-    for _,d := range dest {
-        v := reflect.Indirect(reflect.ValueOf(d))
-        t := v.Type().Elem()
-        v.Set(reflect.New(t))
+        v.Set(reflect.New(v.Type().Elem()))
         values = append(values, reflect.Indirect(v))
     }
 
