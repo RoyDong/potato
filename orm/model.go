@@ -2,6 +2,7 @@ package orm
 
 import (
     "fmt"
+    "time"
     "strings"
     "reflect"
 )
@@ -55,8 +56,15 @@ func Save(entity interface{}) bool {
     for i := 0; i < n; i++ {
         f := val.Field(i)
         col := typ.Field(i).Tag.Get("column")
+        ifc := f.Interface()
         cols = append(cols, col)
-        vals = append(vals, f.Interface())
+
+        if t, ok := ifc.(time.Time); ok {
+            vals = append(vals, t.UnixNano())
+        } else {
+            vals = append(vals, ifc)
+        }
+
         if col == "id" {
             pk = f
             pkv = f.Int()

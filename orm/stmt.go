@@ -2,6 +2,7 @@ package orm
 
 import (
     "fmt"
+    "time"
     "regexp"
     "strings"
     "database/sql"
@@ -48,11 +49,10 @@ func NewStmt() *Stmt {
 }
 
 func (s *Stmt) init() *Stmt {
-    s.allSelected  = make([]string, 0, 5)
+    s.allSelected  = make([]string, 0, 4)
     s.alias        = make(map[string]string, 4)
     s.names        = make(map[string]string, 4)
     s.joins        = make([]string, 0, 3)
-    s.updates      = make([]string, 0, 5)
     s.orders       = make([]string, 0, 2)
     s.placeholders = make([]string, 0, 5)
 
@@ -124,6 +124,7 @@ func (s *Stmt) Insert(name string) *Stmt {
 }
 
 func (s *Stmt) Update(name, alias string) *Stmt {
+    s.updates = make([]string, 0, 5)
     s.From(name, alias)
     s.action = ActionUpdate
 
@@ -328,7 +329,11 @@ func (s *Stmt) values(params map[string]interface{}) []interface{} {
     values := make([]interface{}, 0, len(params))
     for _,p := range s.placeholders {
         if v, ok := params[p]; ok {
-            values = append(values, v)
+            if t, ok := v.(time.Time); ok {
+                values = append(values, t.UnixNano())
+            } else {
+                values = append(values, v)
+            }
         } else {
             panic("orm: missing stmt param " + p)
         }
@@ -339,14 +344,18 @@ func (s *Stmt) values(params map[string]interface{}) []interface{} {
 
 func (s *Stmt) insert(params map[string]interface{}) (int64, error) {
     s.String()
-    l := len(params)
-    c := make([]string, 0, l)
-    h := make([]string, 0, l)
-    v := make([]interface{}, 0, l)
+    n := len(params)
+    c := make([]string, 0, n)
+    h := make([]string, 0, n)
+    v := make([]interface{}, 0, n)
     for col, val := range params {
         c = append(c, fmt.Sprintf("`%s`", col))
         h = append(h, "?")
-        v = append(v, val)
+        if t, ok := val.(time.Time); ok {
+            v = append(v, t.UnixNano())
+        } else {
+            v = append(v, val)
+        }
     }
 
     s.stmt = fmt.Sprintf("INSERT INTO `%s` (%s)VALUES(%s)",
@@ -357,8 +366,8 @@ func (s *Stmt) insert(params map[string]interface{}) (int64, error) {
         return 0, e
     }
 
-    n, e := result.LastInsertId()
-    return n, e
+    id, e := result.LastInsertId()
+    return id, e
 }
 
 func (s *Stmt) Exec(params map[string]interface{}) (int64, error) {
