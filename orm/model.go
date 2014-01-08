@@ -56,18 +56,20 @@ func Save(entity interface{}) bool {
     for i := 0; i < n; i++ {
         f := val.Field(i)
         col := typ.Field(i).Tag.Get("column")
-        ifc := f.Interface()
-        cols = append(cols, col)
+        if len(col) > 0 {
+            ifc := f.Interface()
+            cols = append(cols, col)
 
-        if t, ok := ifc.(time.Time); ok {
-            vals = append(vals, t.UnixNano())
-        } else {
-            vals = append(vals, ifc)
-        }
+            if t, ok := ifc.(time.Time); ok {
+                vals = append(vals, t.UnixNano())
+            } else {
+                vals = append(vals, ifc)
+            }
 
-        if col == "id" {
-            pk = f
-            pkv = f.Int()
+            if col == "id" {
+                pk = f
+                pkv = f.Int()
+            }
         }
     }
 
