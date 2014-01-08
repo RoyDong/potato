@@ -38,10 +38,6 @@ type Stmt struct {
     distinct, where, group, having string
 
     offset, limit int64
-
-    placeholders []string
-
-    stmt string
 }
 
 func NewStmt() *Stmt {
@@ -49,12 +45,11 @@ func NewStmt() *Stmt {
 }
 
 func (s *Stmt) init() *Stmt {
-    s.allSelected  = make([]string, 0, 4)
-    s.alias        = make(map[string]string, 4)
-    s.names        = make(map[string]string, 4)
-    s.joins        = make([]string, 0, 3)
-    s.orders       = make([]string, 0, 2)
-    s.placeholders = make([]string, 0, 5)
+    s.allSelected  = make([]string, 0)
+    s.alias        = make(map[string]string)
+    s.names        = make(map[string]string)
+    s.joins        = make([]string, 0)
+    s.orders       = make([]string, 0)
 
     return s
 }
@@ -67,7 +62,6 @@ func (s *Stmt) Clear() *Stmt {
     s.where    = ""
     s.group    = ""
     s.having   = ""
-    s.stmt     = ""
     s.offset   = 0
     s.limit    = 0
 
@@ -81,7 +75,7 @@ func (s *Stmt) Distinct(c string) *Stmt {
 
 func (s *Stmt) Select(c string) *Stmt {
     parts := strings.Split(c, ",")
-    s.cols = make([]string, 0, 20)
+    s.cols = make([]string, 0, len(parts))
     for _,part := range parts {
         part = strings.Trim(part, " ")
         if col := strings.Split(part, "."); len(col) == 2 {
@@ -117,14 +111,15 @@ func (s *Stmt) Count(name, alias string) *Stmt {
     return s
 }
 
-func (s *Stmt) Insert(name string) *Stmt {
+func (s *Stmt) Insert(name string, cols ...string) *Stmt {
+    s.cols = cols
     s.From(name, "")
     s.action = ActionInsert
     return s
 }
 
-func (s *Stmt) Update(name, alias string) *Stmt {
-    s.updates = make([]string, 0, 5)
+func (s *Stmt) Update(name, alias string, cols ...string) *Stmt {
+    s.cols = cols
     s.From(name, alias)
     s.action = ActionUpdate
 
@@ -161,12 +156,6 @@ func (s *Stmt) Join(t, name, alias, on string) *Stmt {
     }
 
     panic(fmt.Sprintf("orm: model %s not found", name))
-}
-
-func (s *Stmt) Set(u string) *Stmt {
-    s.updates = append(s.updates, u)
-
-    return s
 }
 
 func (s *Stmt) Where(where string) *Stmt {
@@ -219,22 +208,22 @@ func (s *Stmt) Asc(col string) *Stmt {
     return s
 }
 
-func (s *Stmt) replph(sub string) string {
-    s.placeholders = append(s.placeholders, strings.TrimLeft(sub, ":"))
-    return "?"
+func (s *Stmt) table() string {
+    table, ok := tables[s.from[0]]
+    if !ok {
+        panic(fmt.Sprintf("orm: model %s not found", s.from[0]))
+    }
+
+    return table
 }
 
-func (s *Stmt) countStmt(table string) {
-    s.stmt = fmt.Sprintf("SELECT COUNT(*) num FROM `%s` %s%s%s%s%s",
-            table, s.from[1], strings.Join(s.joins, ""),
+func (s *Stmt) countStmt() string {
+    return fmt.Sprintf("SELECT COUNT(*) num FROM `%s` %s%s%s%s%s",
+            s.table(), s.from[1], strings.Join(s.joins, ""),
             s.where, s.group, s.having)
 }
 
-func (s *Stmt) selectStmt(table string) {
-    if len(s.from) != 2 || len(s.from[0]) == 0 {
-        panic("orm: model name not specified while using Stmt.Update")
-    }
-
+func (s *Stmt) selectStmt() string {
     for _,a := range s.allSelected {
         n := s.names[a]
         if len(n) == 0 {
@@ -256,101 +245,59 @@ func (s *Stmt) selectStmt(table string) {
         panic("orm: columns format error while using Stmt.Select")
     }
 
-    s.stmt = fmt.Sprintf("SELECT %s%s FROM `%s` %s%s%s%s%s%s",
-            s.distinct, strings.Join(s.cols, ","), table, s.from[1],
+    stmt := fmt.Sprintf("SELECT %s%s FROM `%s` %s%s%s%s%s%s",
+            s.distinct, strings.Join(s.cols, ","), s.table(), s.from[1],
             strings.Join(s.joins, ""), s.where, s.group, s.having, s.order())
 
     if s.limit != 0 {
-        s.stmt = fmt.Sprintf("%s LIMIT %d,%d", s.stmt, s.offset, s.limit)
+        stmt = fmt.Sprintf("%s LIMIT %d,%d", stmt, s.offset, s.limit)
     }
+
+    return stmt
 }
 
-func (s *Stmt) updateStmt(table string) {
-    s.stmt = fmt.Sprintf("UPDATE `%s` %s%s SET %s%s%s",
-            table, s.from[1], strings.Join(s.joins, ""),
-            strings.Join(s.updates, ","), s.where, s.order())
+func (s *Stmt) updateStmt() string {
+    updates := make([]string, 0, len(s.cols))
+    for _,col := range s.cols {
+        updates = append(updates, fmt.Sprintf("`%s`.`%s` = ?", s.from[1], col))
+    }
+
+    stmt := fmt.Sprintf("UPDATE `%s` %s%s SET %s%s%s",
+            s.table(), s.from[1], strings.Join(s.joins, ""),
+            strings.Join(updates, ","), s.where, s.order())
 
     if s.limit != 0 {
-        s.stmt = fmt.Sprintf("%s LIMIT %d,%d", s.stmt, s.offset, s.limit)
+        stmt = fmt.Sprintf("%s LIMIT %d,%d", stmt, s.offset, s.limit)
     }
+
+    return stmt
 }
 
-func (s *Stmt) deleteStmt(table string) {
-    s.stmt = fmt.Sprintf(
-            "DELETE FROM `%s` %s%s", table, s.where, s.order())
+func (s *Stmt) deleteStmt() string {
+    stmt := fmt.Sprintf(
+            "DELETE FROM `%s` %s%s", s.table(), s.where, s.order())
 
     if s.limit != 0 {
-        s.stmt = fmt.Sprintf("%s LIMIT %d,%d", s.stmt, s.offset, s.limit)
-    }
-}
-
-func (s *Stmt) String() string {
-    if len(s.stmt) == 0 {
-        if len(s.from) != 2 || len(s.from[0]) == 0 {
-            panic("orm: model name not specified while using Stmt.Update")
-        }
-
-        table, ok := tables[s.from[0]]
-        if !ok {
-            panic(fmt.Sprintf("orm: model %s not found", s.from[0]))
-        }
-
-        switch s.action {
-        case ActionCount:
-            s.countStmt(table)
-            break
-
-        case ActionInsert:
-            return "insert stmt will not generate before Stmt.Exec"
-
-        case ActionSelect:
-            s.selectStmt(table)
-            break
-
-        case ActionUpdate:
-            s.updateStmt(table)
-            break
-
-        case ActionDelete:
-            s.deleteStmt(table)
-            break
-
-        default:
-            panic("orm: not supported stmt action")
-        }
-
-        s.stmt = placeholderRegexp.ReplaceAllStringFunc(s.stmt, s.replph)
+        stmt = fmt.Sprintf("%s LIMIT %d,%d", stmt, s.offset, s.limit)
     }
 
-    return s.stmt
+    return stmt
 }
 
-func (s *Stmt) values(params map[string]interface{}) []interface{} {
-    values := make([]interface{}, 0, len(params))
-    for _,p := range s.placeholders {
-        if v, ok := params[p]; ok {
-            if t, ok := v.(time.Time); ok {
-                values = append(values, t.UnixNano())
-            } else {
-                values = append(values, v)
-            }
-        } else {
-            panic("orm: missing stmt param " + p)
-        }
+func (s *Stmt) insert(args ...interface{}) (int64, error) {
+    n := len(args)
+    if n != len(s.cols) {
+        panic("orm: args not match column num while using Stmt.Insert")
     }
 
-    return values
-}
-
-func (s *Stmt) insert(params map[string]interface{}) (int64, error) {
-    s.String()
-    n := len(params)
     c := make([]string, 0, n)
     h := make([]string, 0, n)
     v := make([]interface{}, 0, n)
-    for col, val := range params {
+    for i, col := range s.cols {
         c = append(c, fmt.Sprintf("`%s`", col))
         h = append(h, "?")
+
+        val := args[i]
         if t, ok := val.(time.Time); ok {
             v = append(v, t.UnixNano())
         } else {
@@ -358,10 +305,10 @@ func (s *Stmt) insert(params map[string]interface{}) (int64, error) {
         }
     }
 
-    s.stmt = fmt.Sprintf("INSERT INTO `%s` (%s)VALUES(%s)",
-            tables[s.from[0]], strings.Join(c, ","), strings.Join(h, ","))
+    stmt := fmt.Sprintf("INSERT INTO `%s` (%s)VALUES(%s)",
+            s.table(), strings.Join(c, ","), strings.Join(h, ","))
 
-    result, e := D.Exec(s.stmt, v...)
+    result, e := D.Exec(stmt, v...)
     if e != nil {
         return 0, e
     }
@@ -370,10 +317,10 @@ func (s *Stmt) insert(params map[string]interface{}) (int64, error) {
     return id, e
 }
 
-func (s *Stmt) Exec(params map[string]interface{}) (int64, error) {
+func (s *Stmt) Exec(args ...interface{}) (int64, error) {
     var n int64
     if s.action == ActionCount {
-        rows, e := D.Query(s.String(), s.values(params)...)
+        rows, e := D.Query(s.countStmt(), args...)
         if e != nil {
             return 0, e
         }
@@ -389,16 +336,16 @@ func (s *Stmt) Exec(params map[string]interface{}) (int64, error) {
     var result sql.Result
     var e error
     if s.action == ActionInsert {
-        n, e = s.insert(params)
+        n, e = s.insert(args...)
         return n, e
     }
 
     if s.action == ActionUpdate {
-        result, e = D.Exec(s.String(), s.values(params)...)
+        result, e = D.Exec(s.updateStmt(), args...)
     }
 
     if s.action == ActionDelete {
-        result, e = D.Exec(s.String(), s.values(params)...)
+        result, e = D.Exec(s.deleteStmt(), args...)
     }
 
     if e != nil {
@@ -409,8 +356,8 @@ func (s *Stmt) Exec(params map[string]interface{}) (int64, error) {
     return n, e
 }
 
-func (s *Stmt) Query(params map[string]interface{}) (*Rows, error) {
-    rows, e := D.Query(s.String(), s.values(params)...)
+func (s *Stmt) Query(args ...interface{}) (*Rows, error) {
+    rows, e := D.Query(s.selectStmt(), args...)
     if e != nil {
         return nil, e
     }
