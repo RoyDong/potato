@@ -3,11 +3,9 @@ package orm
 import (
     "fmt"
     "time"
-    "regexp"
     "strings"
     "database/sql"
 )
-
 
 const (
     ActionCount  = 0
@@ -15,10 +13,6 @@ const (
     ActionInsert = 2
     ActionUpdate = 3
     ActionDelete = 4
-)
-
-var (
-    placeholderRegexp = regexp.MustCompile(`:\w+`)
 )
 
 type Stmt struct {
@@ -30,10 +24,9 @@ type Stmt struct {
     alias map[string]string
     names map[string]string
 
-    from    []string
-    joins   []string
-    updates []string
-    orders  []string
+    from   []string
+    joins  []string
+    orders []string
 
     distinct, where, group, having string
 
