@@ -1,12 +1,12 @@
 package potato
 
 import (
-    "os"
-    "log"
     "fmt"
+    "log"
     "net"
-    "strings"
     "net/http"
+    "os"
+    "strings"
 )
 
 var (
@@ -16,7 +16,7 @@ var (
     SockFile = ""
     Port     = 37221
 
-    Dir      = &appDir{
+    Dir = &appDir{
         Config:     "config/",
         Controller: "controller/",
         Model:      "model/",
@@ -24,24 +24,24 @@ var (
         Log:        "log/",
     }
 
-    C *Tree
-    L *log.Logger
-    R *Router
-    T *Template
+    C   *Tree
+    L   *log.Logger
+    R   *Router
+    T   *Template
 )
 
 type appDir struct {
-    Config string
+    Config     string
     Controller string
-    Model string
-    Template string
-    Log string
+    Model      string
+    Template   string
+    Log        string
 }
 
 func Init() {
     //initialize config
     C = new(Tree)
-    if e := LoadYaml(&C.data, Dir.Config + "config.yml"); e != nil {
+    if e := LoadYaml(&C.data, Dir.Config+"config.yml"); e != nil {
         log.Fatal(e)
     }
 
@@ -79,8 +79,8 @@ func Init() {
         logio = os.Stdout
     } else {
         var e error
-        logio, e = os.OpenFile(Dir.Log + Env + ".log",
-                os.O_CREATE | os.O_WRONLY | os.O_APPEND, 0666)
+        logio, e = os.OpenFile(Dir.Log+Env+".log",
+            os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
         if e != nil {
             log.Fatal("Error init log file:", e)
         }

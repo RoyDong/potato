@@ -1,10 +1,10 @@
 package orm
 
 import (
-    "fmt"
-    "time"
-    "strings"
     "database/sql"
+    "fmt"
+    "strings"
+    "time"
 )
 
 const (
@@ -18,7 +18,7 @@ const (
 type Stmt struct {
     action int
 
-    cols []string
+    cols        []string
     allSelected []string
 
     alias map[string]string
@@ -38,25 +38,25 @@ func NewStmt() *Stmt {
 }
 
 func (s *Stmt) init() *Stmt {
-    s.allSelected  = make([]string, 0)
-    s.alias        = make(map[string]string)
-    s.names        = make(map[string]string)
-    s.joins        = make([]string, 0)
-    s.orders       = make([]string, 0)
+    s.allSelected = make([]string, 0)
+    s.alias = make(map[string]string)
+    s.names = make(map[string]string)
+    s.joins = make([]string, 0)
+    s.orders = make([]string, 0)
 
     return s
 }
 
 func (s *Stmt) Clear() *Stmt {
     s.init()
-    s.cols     = nil
-    s.from     = nil
+    s.cols = nil
+    s.from = nil
     s.distinct = ""
-    s.where    = ""
-    s.group    = ""
-    s.having   = ""
-    s.offset   = 0
-    s.limit    = 0
+    s.where = ""
+    s.group = ""
+    s.having = ""
+    s.offset = 0
+    s.limit = 0
 
     return s
 }
@@ -69,15 +69,15 @@ func (s *Stmt) Distinct(c string) *Stmt {
 func (s *Stmt) Select(c string) *Stmt {
     parts := strings.Split(c, ",")
     s.cols = make([]string, 0, len(parts))
-    for _,part := range parts {
+    for _, part := range parts {
         part = strings.Trim(part, " ")
         if col := strings.Split(part, "."); len(col) == 2 {
             if len(col[0]) > 0 && len(col[1]) > 0 {
                 if col[1] == "*" {
                     s.allSelected = append(s.allSelected, col[0])
                 } else {
-                    s.cols = append(s.cols,fmt.Sprintf("`%s`.`%s` _%s_%s",
-                            col[0], col[1], col[0], col[1]))
+                    s.cols = append(s.cols, fmt.Sprintf("`%s`.`%s` _%s_%s",
+                        col[0], col[1], col[0], col[1]))
                 }
             }
         }
@@ -141,7 +141,7 @@ func (s *Stmt) RightJoin(name, alias, on string) *Stmt {
 func (s *Stmt) Join(t, name, alias, on string) *Stmt {
     if table, ok := tables[name]; ok {
         s.joins = append(s.joins,
-                fmt.Sprintf(" %s JOIN `%s` %s ON %s", t, table, alias, on))
+            fmt.Sprintf(" %s JOIN `%s` %s ON %s", t, table, alias, on))
         s.alias[name] = alias
         s.names[alias] = name
 
@@ -212,12 +212,12 @@ func (s *Stmt) table() string {
 
 func (s *Stmt) countStmt() string {
     return fmt.Sprintf("SELECT COUNT(*) num FROM `%s` %s%s%s%s%s",
-            s.table(), s.from[1], strings.Join(s.joins, ""),
-            s.where, s.group, s.having)
+        s.table(), s.from[1], strings.Join(s.joins, ""),
+        s.where, s.group, s.having)
 }
 
 func (s *Stmt) selectStmt() string {
-    for _,a := range s.allSelected {
+    for _, a := range s.allSelected {
         n := s.names[a]
         if len(n) == 0 {
             continue
@@ -228,9 +228,9 @@ func (s *Stmt) selectStmt() string {
             continue
         }
 
-        for _,c := range m.Cols {
+        for _, c := range m.Cols {
             s.cols = append(s.cols, fmt.Sprintf(
-                    "`%s`.`%s` _%s_%s", a, c, a, c))
+                "`%s`.`%s` _%s_%s", a, c, a, c))
         }
     }
 
@@ -239,8 +239,8 @@ func (s *Stmt) selectStmt() string {
     }
 
     stmt := fmt.Sprintf("SELECT %s%s FROM `%s` %s%s%s%s%s%s",
-            s.distinct, strings.Join(s.cols, ","), s.table(), s.from[1],
-            strings.Join(s.joins, ""), s.where, s.group, s.having, s.order())
+        s.distinct, strings.Join(s.cols, ","), s.table(), s.from[1],
+        strings.Join(s.joins, ""), s.where, s.group, s.having, s.order())
 
     if s.limit != 0 {
         stmt = fmt.Sprintf("%s LIMIT %d,%d", stmt, s.offset, s.limit)
@@ -251,13 +251,13 @@ func (s *Stmt) selectStmt() string {
 
 func (s *Stmt) updateStmt() string {
     updates := make([]string, 0, len(s.cols))
-    for _,col := range s.cols {
+    for _, col := range s.cols {
         updates = append(updates, fmt.Sprintf("`%s`.`%s` = ?", s.from[1], col))
     }
 
     stmt := fmt.Sprintf("UPDATE `%s` %s%s SET %s%s%s",
-            s.table(), s.from[1], strings.Join(s.joins, ""),
-            strings.Join(updates, ","), s.where, s.order())
+        s.table(), s.from[1], strings.Join(s.joins, ""),
+        strings.Join(updates, ","), s.where, s.order())
 
     if s.limit != 0 {
         stmt = fmt.Sprintf("%s LIMIT %d,%d", stmt, s.offset, s.limit)
@@ -268,7 +268,7 @@ func (s *Stmt) updateStmt() string {
 
 func (s *Stmt) deleteStmt() string {
     stmt := fmt.Sprintf(
-            "DELETE FROM `%s` %s%s", s.table(), s.where, s.order())
+        "DELETE FROM `%s` %s%s", s.table(), s.where, s.order())
 
     if s.limit != 0 {
         stmt = fmt.Sprintf("%s LIMIT %d,%d", stmt, s.offset, s.limit)
@@ -299,7 +299,7 @@ func (s *Stmt) insert(args ...interface{}) (int64, error) {
     }
 
     stmt := fmt.Sprintf("INSERT INTO `%s` (%s)VALUES(%s)",
-            s.table(), strings.Join(c, ","), strings.Join(h, ","))
+        s.table(), strings.Join(c, ","), strings.Join(h, ","))
 
     result, e := D.Exec(stmt, v...)
     if e != nil {

@@ -2,11 +2,10 @@ package orm
 
 import (
     "fmt"
-    "time"
-    "strings"
     "reflect"
+    "strings"
+    "time"
 )
-
 
 var (
     tables = make(map[string]string)
@@ -14,8 +13,8 @@ var (
 )
 
 type Model struct {
-    Table string
-    Cols []string
+    Table  string
+    Cols   []string
     Entity reflect.Type
 }
 
@@ -40,17 +39,17 @@ func (m *Model) Save(entity interface{}) bool {
 }
 
 func Save(entity interface{}) bool {
-    val  := reflect.Indirect(reflect.ValueOf(entity))
-    typ  := val.Type()
+    val := reflect.Indirect(reflect.ValueOf(entity))
+    typ := val.Type()
     name := typ.Name()
-    tbl  := tables[name]
+    tbl := tables[name]
     if len(tbl) == 0 {
         panic("orm: entity not found")
     }
 
     var pk reflect.Value
-    pkv  := int64(-1)
-    n    := typ.NumField()
+    pkv := int64(-1)
+    n := typ.NumField()
     cols := make([]string, 0, n)
     vals := make([]interface{}, 0, n)
     for i := 0; i < n; i++ {
@@ -80,13 +79,13 @@ func Save(entity interface{}) bool {
     if pkv == 0 {
         cs := make([]string, 0, n)
         ph := make([]string, 0, n)
-        for _,col := range cols {
+        for _, col := range cols {
             cs = append(cs, fmt.Sprintf("`%s`", col))
             ph = append(ph, "?")
         }
 
         stmt := fmt.Sprintf("INSERT INTO `%s` (%s)VALUES(%s)",
-                tbl, strings.Join(cs, ","), strings.Join(ph, ","))
+            tbl, strings.Join(cs, ","), strings.Join(ph, ","))
         result, e := D.Exec(stmt, vals...)
         if e != nil {
             L.Println(e)
@@ -104,13 +103,13 @@ func Save(entity interface{}) bool {
     }
 
     sets := make([]string, 0, n)
-    for _,col := range cols {
+    for _, col := range cols {
         sets = append(sets, fmt.Sprintf("`%s` = ?", col))
     }
 
     stmt := fmt.Sprintf("UPDATE `%s` SET %s WHERE `id` = %d",
-            tbl, strings.Join(sets, ","), pkv)
-    if _,e := D.Exec(stmt, vals...); e != nil {
+        tbl, strings.Join(sets, ","), pkv)
+    if _, e := D.Exec(stmt, vals...); e != nil {
         L.Println(e)
         return false
     }

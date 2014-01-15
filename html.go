@@ -1,11 +1,11 @@
 package potato
 
 import (
-    "os"
-    "fmt"
     "bytes"
-    "strings"
+    "fmt"
     "html/template"
+    "os"
+    "strings"
 )
 
 var (
@@ -14,15 +14,15 @@ var (
 )
 
 type Template struct {
-    root *template.Template
-    dir string
+    root  *template.Template
+    dir   string
     funcs template.FuncMap
 }
 
 func NewTemplate(dir string) *Template {
     return &Template{
         root: template.New("/"),
-        dir: dir,
+        dir:  dir,
     }
 }
 
@@ -39,16 +39,16 @@ func (t *Template) Include(args ...interface{}) template.HTML {
         if n == 1 {
             tpl.Execute(buffer, nil)
 
-        //only one argument
+            //only one argument
         } else if n == 2 {
             tpl.Execute(buffer, args[1])
 
-        //set all data to a map 
-        //arguments must be listed as key, value, key, value,...
+            //set all data to a map
+            //arguments must be listed as key, value, key, value,...
         } else if n > 2 {
-            m := make(map[string]interface{}, n / 2)
-            for i := 1; i < n - 1; i = i + 2 {
-                m[args[i].(string)] = args[i + 1]
+            m := make(map[string]interface{}, n/2)
+            for i := 1; i < n-1; i = i + 2 {
+                m[args[i].(string)] = args[i+1]
             }
 
             tpl.Execute(buffer, m)
@@ -93,29 +93,33 @@ func (t *Template) SetFuncs(funcs map[string]interface{}) {
  */
 func (t *Template) loadTemplateFiles(dir string) {
     d, e := os.Open(dir)
-    if e != nil { return }
+    if e != nil {
+        return
+    }
     defer d.Close()
 
     dinfo, e := d.Readdir(-1)
-    if e != nil { return }
+    if e != nil {
+        return
+    }
 
-    for _,info := range dinfo {
+    for _, info := range dinfo {
         uri := dir + info.Name()
         if info.IsDir() {
             t.loadTemplateFiles(uri + "/")
 
-        //check file
+            //check file
         } else if info.Size() <= MaxFileSize &&
-                strings.HasSuffix(info.Name(), ".html") {
+            strings.HasSuffix(info.Name(), ".html") {
 
             //load file
             if f, e := os.Open(uri); e == nil {
                 txt := make([]byte, info.Size())
-                if _,e := f.Read(txt); e == nil {
+                if _, e := f.Read(txt); e == nil {
 
                     //init template
                     key := strings.TrimPrefix(
-                            strings.TrimSuffix(uri, ".html"), t.dir)
+                        strings.TrimSuffix(uri, ".html"), t.dir)
                     template.Must(t.root.New(key).Parse(string(txt)))
                 }
 
@@ -126,17 +130,17 @@ func (t *Template) loadTemplateFiles(dir string) {
 }
 
 type Html struct {
-    css, js []string
-    title string
+    css, js   []string
+    title     string
     fragments map[string]template.HTML
-    Data interface{}
-    Content template.HTML
+    Data      interface{}
+    Content   template.HTML
 }
 
 func NewHtml() *Html {
-    return &Html {
-        css: make([]string, 0),
-        js: make([]string, 0),
+    return &Html{
+        css:       make([]string, 0),
+        js:        make([]string, 0),
         fragments: make(map[string]template.HTML),
     }
 }
@@ -168,7 +172,7 @@ func (h *Html) CSS(urls ...string) template.HTML {
         return h.cssHtml()
     }
 
-    for _,url := range urls {
+    for _, url := range urls {
         h.css = append(h.css, url)
     }
 
@@ -178,7 +182,7 @@ func (h *Html) CSS(urls ...string) template.HTML {
 func (h *Html) cssHtml() template.HTML {
     format := `<link type="text/css" rel="stylesheet" href="%s"/>`
     tags := make([]string, len(h.css))
-    for _,uri := range h.css {
+    for _, uri := range h.css {
         tags = append(tags, fmt.Sprintf(format, uri))
     }
     return template.HTML(strings.Join(tags, "\n"))
@@ -199,7 +203,7 @@ func (h *Html) JS(urls ...string) template.HTML {
 func (h *Html) jsHtml() template.HTML {
     format := `<script charset="utf-8" src="%s"></script>`
     tags := make([]string, len(h.js))
-    for _,uri := range h.js {
+    for _, uri := range h.js {
         tags = append(tags, fmt.Sprintf(format, uri))
     }
     return template.HTML(strings.Join(tags, "\n"))

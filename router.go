@@ -1,22 +1,22 @@
 package potato
 
 import (
+    ws "code.google.com/p/go.net/websocket"
+    "encoding/json"
     "log"
+    "net/http"
+    "reflect"
     "regexp"
     "strings"
-    "reflect"
-    "net/http"
-    "encoding/json"
-    ws "code.google.com/p/go.net/websocket"
 )
 
 type Route struct {
-    Name string `yaml:"name"`
-    Controller string `yaml:"controller"`
-    Action string `yaml:"action"`
-    Pattern string `yaml:"pattern"`
-    Keys []string `yaml:"keys"`
-    Regexp *regexp.Regexp
+    Name       string   `yaml:"name"`
+    Controller string   `yaml:"controller"`
+    Action     string   `yaml:"action"`
+    Pattern    string   `yaml:"pattern"`
+    Keys       []string `yaml:"keys"`
+    Regexp     *regexp.Regexp
 }
 
 /**
@@ -32,7 +32,7 @@ type PrefixedRoutes struct {
 
 type Router struct {
     Event
-    ws ws.Server
+    ws  ws.Server
 
     //all grouped routes
     routes []*PrefixedRoutes
@@ -42,8 +42,8 @@ type Router struct {
 
 func NewRouter() *Router {
     return &Router{
-        Event: Event{make(map[string][]EventHandler)},
-        ws: ws.Server{},
+        Event:       Event{make(map[string][]EventHandler)},
+        ws:          ws.Server{},
         controllers: make(map[string]reflect.Type),
     }
 }
@@ -67,16 +67,15 @@ func (rt *Router) LoadRouteConfig(filename string) {
         log.Fatal(e)
     }
 
-    for _,pr := range rt.routes {
+    for _, pr := range rt.routes {
 
         //prepare regexps for prefixed routes
         pr.Regexp = regexp.MustCompile("^" + pr.Prefix + "(.*)$")
-        for _,r := range pr.Routes {
+        for _, r := range pr.Routes {
             r.Regexp = regexp.MustCompile("^" + r.Pattern + "$")
         }
     }
 }
-
 
 func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     route, params := rt.Route(r.URL.Path)
@@ -94,7 +93,7 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     if route == nil {
         rt.handleError(&Error{http.StatusNotFound, "page not found"},
-                request, response)
+            request, response)
     } else {
         rt.Dispatch(route, request, response)
     }
@@ -109,15 +108,15 @@ func (rt *Router) Route(path string) (*Route, map[string]string) {
     path = strings.ToLower(path)
 
     //check prefixes
-    for _,pr := range rt.routes {
+    for _, pr := range rt.routes {
         if m := pr.Regexp.FindStringSubmatch(path); len(m) == 2 {
 
             //check routes on matched prefix
-            for _,r := range pr.Routes {
+            for _, r := range pr.Routes {
                 if p := r.Regexp.FindStringSubmatch(m[1]); len(p) > 0 {
 
                     //get params for matched route
-                    params := make(map[string]string, len(p) - 1)
+                    params := make(map[string]string, len(p)-1)
                     for i, v := range p[1:] {
                         params[r.Keys[i]] = v
                     }
@@ -134,7 +133,7 @@ func (rt *Router) Route(path string) (*Route, map[string]string) {
 func (rt *Router) Dispatch(route *Route, r *Request, p *Response) {
 
     //handle panics
-    defer func () {
+    defer func() {
         if e := recover(); e != nil {
             rt.handleError(e, r, p)
         }
@@ -173,13 +172,13 @@ func (rt *Router) handleError(e interface{}, r *Request, p *Response) {
 
         if !p.Sent {
             if r.IsAjax() {
-                json,_ := json.Marshal(err)
+                json, _ := json.Marshal(err)
                 p.Write(json)
             } else {
                 p.Write([]byte(err.String()))
             }
 
-            p.Sent = true;
+            p.Sent = true
         }
     }
 

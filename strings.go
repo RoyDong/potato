@@ -1,13 +1,13 @@
 package potato
 
 import (
-    "os"
     "bytes"
-    "regexp"
-    "strings"
-    "math/rand"
     "encoding/json"
     "launchpad.net/goyaml"
+    "math/rand"
+    "os"
+    "regexp"
+    "strings"
 )
 
 const (

@@ -14,7 +14,7 @@ type Tree struct {
 func (t *Tree) find(nodes []string) (map[interface{}]interface{}, bool) {
     var ok bool
     data := t.data
-    for _,n := range nodes {
+    for _, n := range nodes {
         if data, ok = data[n].(map[interface{}]interface{}); !ok {
             return nil, false
         }
@@ -30,7 +30,7 @@ func (t *Tree) find(nodes []string) (map[interface{}]interface{}, bool) {
 func (t *Tree) Set(path string, v interface{}, f bool) bool {
     var i int
     var n string
-    nodes := strings.Split(path , ".")
+    nodes := strings.Split(path, ".")
     last := len(nodes) - 1
     data := t.data
 
@@ -44,14 +44,14 @@ func (t *Tree) Set(path string, v interface{}, f bool) bool {
     }
 
     //the next node is a value and f is false
-    if _,has := data[n]; has && !f {
+    if _, has := data[n]; has && !f {
         return false
     }
 
     //if the loop upove is ended by break
     //then create the rest nodes of the path
-    if i < last - 1 {
-        for _,n = range nodes[i:last] {
+    if i < last-1 {
+        for _, n = range nodes[i:last] {
             d := make(map[interface{}]interface{}, 1)
             data[n] = d
             data = d
@@ -71,7 +71,7 @@ func (t *Tree) Set(path string, v interface{}, f bool) bool {
  * path is a string with node names divided by dot(.)
  */
 func (t *Tree) Value(path string) interface{} {
-    nodes := strings.Split(path , ".")
+    nodes := strings.Split(path, ".")
     n := len(nodes) - 1
     if data, ok := t.find(nodes[:n]); ok {
         return data[nodes[n]]
@@ -134,4 +134,3 @@ func (t *Tree) String(path string) (string, bool) {
 
     return "", false
 }
-

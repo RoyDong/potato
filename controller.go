@@ -1,25 +1,25 @@
 package potato
 
 import (
-    "reflect"
-    "net/http"
-    "encoding/json"
     ws "code.google.com/p/go.net/websocket"
+    "encoding/json"
+    "net/http"
+    "reflect"
 )
 
 type Controller struct {
-    Request *Request
+    Request  *Request
     Response *Response
-    Layout string
+    Layout   string
 }
 
 func NewController(t reflect.Type, r *Request, p *Response) reflect.Value {
     c := reflect.New(t)
     c.Elem().FieldByName("Controller").
-            Set(reflect.ValueOf(Controller{
-                    Request: r,
-                    Response: p,
-                    Layout: "layout"}))
+        Set(reflect.ValueOf(Controller{
+        Request:  r,
+        Response: p,
+        Layout:   "layout"}))
     return c
 }
 
@@ -64,7 +64,7 @@ func (c *Controller) WSReceive() string {
         L.Println(e)
         return ""
     }
-    
+
     return txt
 }
 
@@ -73,7 +73,7 @@ func (c *Controller) WSSend(txt string) bool {
         L.Println(e)
         return false
     }
-    
+
     return true
 }
 

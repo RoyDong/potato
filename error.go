@@ -5,11 +5,11 @@ import (
 )
 
 const (
-    RedirectCode = 302 
+    RedirectCode = 302
 )
 
 type Error struct {
-    Code int `json:"code"`
+    Code    int    `json:"code"`
     Message string `json:"message"`
 }
 

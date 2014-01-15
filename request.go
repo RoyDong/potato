@@ -1,26 +1,25 @@
 package potato
 
-
 import (
-    "strconv"
-    "net/http"
     ws "code.google.com/p/go.net/websocket"
+    "net/http"
+    "strconv"
 )
 
 type Request struct {
     *http.Request
-    WSConn *ws.Conn
-    params map[string]string
-    RemoteIP string
+    WSConn     *ws.Conn
+    params     map[string]string
+    RemoteIP   string
     RemotePort int
-    Session *Session
-    Cookies []*http.Cookie
+    Session    *Session
+    Cookies    []*http.Cookie
 }
 
 func NewRequest(r *http.Request, p map[string]string) *Request {
     rq := &Request{
         Request: r,
-        params: p,
+        params:  p,
         Cookies: r.Cookies(),
     }
 
@@ -29,7 +28,7 @@ func NewRequest(r *http.Request, p map[string]string) *Request {
 
 func (r *Request) SiteAddr() string {
     //TODO
-    return "";
+    return ""
 }
 
 func (r *Request) IsAjax() bool {
@@ -82,8 +81,10 @@ func (r *Request) String(k string) (string, bool) {
  * get cookie by name
  */
 func (r *Request) Cookie(name string) *http.Cookie {
-    for _,c := range r.Cookies {
-        if c.Name == name { return c }
+    for _, c := range r.Cookies {
+        if c.Name == name {
+            return c
+        }
     }
 
     return nil

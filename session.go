@@ -1,26 +1,26 @@
 package potato
 
 import (
-    "io"
-    "fmt"
-    "time"
-    "net/http"
+    "crypto/md5"
     "crypto/rand"
     "encoding/hex"
-    "crypto/md5"
+    "fmt"
+    "io"
+    "net/http"
+    "time"
 )
 
 var (
-    SessionDir = "session/"
-    SessionDuration = int64(60 * 60 * 24)
+    SessionDir        = "session/"
+    SessionDuration   = int64(60 * 60 * 24)
     SessionCookieName = "POTATO_SESSION_ID"
-    SessionDomain string
-    sessions = make(map[string]*Session)
+    SessionDomain     string
+    sessions          = make(map[string]*Session)
 )
 
 type Session struct {
     Tree
-    Id string
+    Id           string
     LastActivity time.Time
 }
 
@@ -30,8 +30,8 @@ func SessionStart() {
 
 func NewSession(r *Request, p *Response) *Session {
     s := &Session{
-        Tree: Tree{make(map[interface{}]interface{})},
-        Id: createSessionId(r),
+        Tree:         Tree{make(map[interface{}]interface{})},
+        Id:           createSessionId(r),
         LastActivity: time.Now(),
     }
 
@@ -39,9 +39,9 @@ func NewSession(r *Request, p *Response) *Session {
 
     //set id in cookie
     p.SetCookie(&http.Cookie{
-        Name: SessionCookieName,
-        Value: s.Id,
-        Path: "/",
+        Name:   SessionCookieName,
+        Value:  s.Id,
+        Path:   "/",
         Domain: SessionDomain,
     })
 
@@ -58,12 +58,12 @@ func InitSession(r *Request, p *Response) {
     }
 
     if r.Session == nil {
-        r.Session  = NewSession(r, p)
+        r.Session = NewSession(r, p)
     } else {
         t := time.Now()
 
         //check session expiration
-        if r.Session.LastActivity.Unix() + SessionDuration < t.Unix() {
+        if r.Session.LastActivity.Unix()+SessionDuration < t.Unix() {
             r.Session.Clear()
         }
 
@@ -73,13 +73,13 @@ func InitSession(r *Request, p *Response) {
 
 func createSessionId(r *Request) string {
     rnd := make([]byte, 24)
-    if _,e := io.ReadFull(rand.Reader, rnd); e != nil {
+    if _, e := io.ReadFull(rand.Reader, rnd); e != nil {
         panic("could not get random chars while creating session id")
     }
 
     sig := fmt.Sprintf("%s%d%s", r.RemoteAddr, time.Now().UnixNano(), rnd)
     hash := md5.New()
-    if _,e := hash.Write([]byte(sig)); e != nil {
+    if _, e := hash.Write([]byte(sig)); e != nil {
         panic("could not hash string while creating session id")
     }
 
@@ -87,18 +87,17 @@ func createSessionId(r *Request) string {
 }
 
 /**
- * checkSessionExpiration checks sessons expiration per minute 
+ * checkSessionExpiration checks sessons expiration per minute
  * and delete all expired sessions
  */
 func checkSessionExpiration() {
     for now := range time.Tick(time.Minute) {
         t := now.Unix()
         for k, s := range sessions {
-            if s.LastActivity.Unix() + SessionDuration < t {
+            if s.LastActivity.Unix()+SessionDuration < t {
                 s.Clear()
                 delete(sessions, k)
             }
         }
     }
 }
-

@@ -1,8 +1,8 @@
 package potato
 
 import (
+    _ "encoding/json"
     "net/http"
-    _"encoding/json"
 )
 
 type Response struct {
