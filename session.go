@@ -35,16 +35,16 @@ func NewSession(r *Request, p *Response) *Session {
         LastActivity: time.Now(),
     }
 
-    sessions[s.Id] = s
-
     //set id in cookie
     p.SetCookie(&http.Cookie{
-        Name:   SessionCookieName,
-        Value:  s.Id,
-        Path:   "/",
-        Domain: SessionDomain,
+        Name:     SessionCookieName,
+        Value:    s.Id,
+        Path:     "/",
+        Domain:   SessionDomain,
+        HttpOnly: true,
     })
 
+    sessions[s.Id] = s
     return s
 }
 
