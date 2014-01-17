@@ -177,7 +177,7 @@ func (rt *Router) handleError(e interface{}, r *Request, p *Response) {
     rt.TriggerEvent("error", r, p, message)
     if !p.Sent {
         if r.IsAjax() {
-            message = fmt.Sprintf(`{error:%s}`,
+            message = fmt.Sprintf(`{error:"%s"}`,
                 strings.Replace(message, `"`, `\"`, -1))
         }
         p.Write([]byte(message))
