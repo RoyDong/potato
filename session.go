@@ -41,9 +41,7 @@ func NewSession(r *Request, p *Response) *Session {
         Value:    s.Id,
         Path:     "/",
         Domain:   SessionDomain,
-        HttpOnly: true,
-    })
-
+        HttpOnly: true})
     sessions[s.Id] = s
     return s
 }
