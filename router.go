@@ -2,7 +2,7 @@ package potato
 
 import (
     ws "code.google.com/p/go.net/websocket"
-    "encoding/json"
+    "fmt"
     "log"
     "net/http"
     "reflect"
@@ -92,7 +92,7 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     rt.TriggerEvent("request_start", request, response)
 
     if route == nil {
-        rt.handleError(&Error{http.StatusNotFound, "page not found"},
+        rt.handleError("page not found",
             request, response)
     } else {
         rt.Dispatch(route, request, response)
@@ -132,7 +132,7 @@ func (rt *Router) Route(path string) (*Route, map[string]string) {
 
 func (rt *Router) Dispatch(route *Route, r *Request, p *Response) {
 
-    //handle panics
+    //handle panic
     defer func() {
         if e := recover(); e != nil {
             rt.handleError(e, r, p)
@@ -146,7 +146,7 @@ func (rt *Router) Dispatch(route *Route, r *Request, p *Response) {
         //if action not found check the NotFound method
         action := c.MethodByName(route.Action)
         if !action.IsValid() {
-            Panic(http.StatusNotFound, "page not found")
+            panic("page not found")
         }
 
         //if controller has Init method, run it first
@@ -158,28 +158,30 @@ func (rt *Router) Dispatch(route *Route, r *Request, p *Response) {
         action.Call(nil)
         rt.TriggerEvent("action_end", r, p, c)
     } else {
-        Panic(http.StatusNotFound, "page not found")
+        panic("page not found")
     }
 }
 
 func (rt *Router) handleError(e interface{}, r *Request, p *Response) {
-    if err, ok := e.(*Error); ok {
-        if err.Code == RedirectCode {
-            return
+    var message string
+    if v, ok := e.(string); ok {
+        message = v
+    } else if v, ok := e.(error); ok {
+        message = v.Error()
+    }
+
+    if message == "redirect" {
+        return
+    }
+
+    rt.TriggerEvent("error", r, p, message)
+    if !p.Sent {
+        if r.IsAjax() {
+            message = fmt.Sprintf(`{error:%s}`,
+                strings.Replace(message, `"`, `\"`, -1))
         }
-
-        rt.TriggerEvent("error", r, p, err)
-
-        if !p.Sent {
-            if r.IsAjax() {
-                json, _ := json.Marshal(err)
-                p.Write(json)
-            } else {
-                p.Write([]byte(err.String()))
-            }
-
-            p.Sent = true
-        }
+        p.Write([]byte(message))
+        p.Sent = true
     }
 
     L.Println(e)
