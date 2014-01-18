@@ -25,21 +25,6 @@ func RandString(length int) string {
     return string(rnd)
 }
 
-func ParseHttpQuery(q string) map[string]string {
-    parts := strings.Split(string(q), "&")
-    params := make(map[string]string, len(parts))
-
-    for _, v := range parts {
-        p := strings.Split(v, "=")
-
-        if len(p) == 2 {
-            params[p[0]] = p[1]
-        }
-    }
-
-    return params
-}
-
 func LoadJson(v interface{}, filename string) error {
     text, e := LoadFile(filename)
     if e != nil {
