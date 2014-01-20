@@ -1,7 +1,6 @@
 package potato
 
 import (
-    _ "encoding/json"
     "net/http"
 )
 

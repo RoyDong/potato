@@ -1,6 +1,7 @@
 package potato
 
 import (
+    "github.com/roydong/potato/orm"
     "fmt"
     "log"
     "net"
@@ -95,7 +96,42 @@ func Init() {
     //template
     T = NewTemplate(Dir.Template)
 
+    initOrm()
     SessionStart()
+}
+
+func initOrm() {
+    if c, ok := C.Tree("sql"); ok {
+        dbc := &orm.Config {
+            Type:   "mysql",
+            Host:   "localhost",
+            Port:   3306,
+            User:   "root",
+            Pass:   "",
+            DBname: "",
+        }
+
+        if v, ok := c.String("type"); ok {
+            dbc.Type = v
+        }
+        if v, ok := c.String("host"); ok {
+            dbc.Host = v
+        }
+        if v, ok := c.Int("port"); ok {
+            dbc.Port = v
+        }
+        if v, ok := c.String("user"); ok {
+            dbc.User = v
+        }
+        if v, ok := c.String("pass"); ok {
+            dbc.Pass = v
+        }
+        if v, ok := c.String("dbname"); ok {
+            dbc.DBname = v
+        }
+
+        orm.Init(dbc, L)
+    }
 }
 
 func Serve() {
