@@ -69,10 +69,6 @@ func Init() {
         dir = strings.Trim(dir, "./")
         Dir.Log = dir + "/"
     }
-    if dir, ok := C.String("session_dir"); ok {
-        dir = strings.Trim(dir, "./")
-        SessionDir = dir + "/"
-    }
 
     //logger
     var logio *os.File
@@ -97,7 +93,7 @@ func Init() {
     T = NewTemplate(Dir.Template)
 
     initOrm()
-    SessionStart()
+    go sessionExpire()
 }
 
 func initOrm() {
