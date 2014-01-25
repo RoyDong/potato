@@ -41,10 +41,11 @@ type appDir struct {
 
 func Init() {
     //initialize config
-    C = new(Tree)
-    if e := LoadYaml(&C.data, Dir.Config+"config.yml"); e != nil {
+    var data map[interface{}]interface{}
+    if e := LoadYaml(&data, Dir.Config+"config.yml"); e != nil {
         log.Fatal(e)
     }
+    C = NewTree(data)
 
     if name, ok := C.String("name"); ok {
         AppName = name

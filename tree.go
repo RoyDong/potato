@@ -1,11 +1,20 @@
 package potato
 
 import (
+    "sync"
     "strings"
 )
 
 type Tree struct {
     data map[interface{}]interface{}
+    mutex *sync.Mutex
+}
+
+func NewTree(data map[interface{}]interface{}) *Tree {
+    if data == nil {
+        data = make(map[interface{}]interface{})
+    }
+    return &Tree{data, &sync.Mutex{}}
 }
 
 /**
@@ -19,7 +28,6 @@ func (t *Tree) find(nodes []string) (map[interface{}]interface{}, bool) {
             return nil, false
         }
     }
-
     return data, true
 }
 
@@ -28,6 +36,7 @@ func (t *Tree) find(nodes []string) (map[interface{}]interface{}, bool) {
  * f means force to replace old value if there is any
  */
 func (t *Tree) Set(path string, v interface{}, f bool) bool {
+    t.mutex.Lock()
     var i int
     var n string
     nodes := strings.Split(path, ".")
@@ -63,6 +72,7 @@ func (t *Tree) Set(path string, v interface{}, f bool) bool {
     }
 
     data[nodes[last]] = v
+    t.mutex.Unlock()
     return true
 }
 
@@ -85,7 +95,7 @@ func (t *Tree) Value(path string) interface{} {
  */
 func (t *Tree) Tree(path string) (*Tree, bool) {
     if data, ok := t.find(strings.Split(path, ".")); ok {
-        return &Tree{data}, true
+        return NewTree(data), true
     }
 
     return nil, false
@@ -93,10 +103,6 @@ func (t *Tree) Tree(path string) (*Tree, bool) {
 
 func (t *Tree) Clear() {
     t.data = make(map[interface{}]interface{})
-}
-
-func (t *Tree) Load(data map[interface{}]interface{}) {
-    t.data = data
 }
 
 func (t *Tree) Int(path string) (int, bool) {
