@@ -37,6 +37,8 @@ func (t *Tree) find(nodes []string) (map[interface{}]interface{}, bool) {
  */
 func (t *Tree) Set(path string, v interface{}, f bool) bool {
     t.mutex.Lock()
+    defer t.mutex.Unlock()
+
     var i int
     var n string
     nodes := strings.Split(path, ".")
@@ -72,7 +74,6 @@ func (t *Tree) Set(path string, v interface{}, f bool) bool {
     }
 
     data[nodes[last]] = v
-    t.mutex.Unlock()
     return true
 }
 
