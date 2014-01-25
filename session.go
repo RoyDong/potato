@@ -15,7 +15,7 @@ var (
     SessionDuration   = int64(60 * 60 * 24)
     SessionCookieName = "POTATO_SESSION_ID"
 
-    sessions          = make(map[string]*Session)
+    sessions = make(map[string]*Session)
 )
 
 type Session struct {
@@ -89,7 +89,7 @@ func sessionExpire() {
     for now := range time.Tick(time.Minute) {
         t := now.Unix()
         for k, s := range sessions {
-            if s.UpdatedAt.Unix() + SessionDuration < t {
+            if s.UpdatedAt.Unix()+SessionDuration < t {
                 s.Clear()
                 delete(sessions, k)
             }

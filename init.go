@@ -1,8 +1,8 @@
 package potato
 
 import (
-    "github.com/roydong/potato/orm"
     "fmt"
+    "github.com/roydong/potato/orm"
     "log"
     "net"
     "net/http"
@@ -99,7 +99,7 @@ func Init() {
 
 func initOrm() {
     if c, ok := C.Tree("sql"); ok {
-        dbc := &orm.Config {
+        dbc := &orm.Config{
             Type:   "mysql",
             Host:   "localhost",
             Port:   3306,

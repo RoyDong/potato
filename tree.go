@@ -1,13 +1,13 @@
 package potato
 
 import (
-    "sync"
     "strings"
+    "sync"
 )
 
 type Tree struct {
-    data map[interface{}]interface{}
-    mutex *sync.Mutex
+    data   map[interface{}]interface{}
+    locker *sync.Mutex
 }
 
 func NewTree(data map[interface{}]interface{}) *Tree {
@@ -36,8 +36,8 @@ func (t *Tree) find(nodes []string) (map[interface{}]interface{}, bool) {
  * f means force to replace old value if there is any
  */
 func (t *Tree) Set(path string, v interface{}, f bool) bool {
-    t.mutex.Lock()
-    defer t.mutex.Unlock()
+    t.locker.Lock()
+    defer t.locker.Unlock()
 
     var i int
     var n string

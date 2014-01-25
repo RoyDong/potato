@@ -311,6 +311,12 @@ func (s *Stmt) insert(args ...interface{}) (int64, error) {
 }
 
 func (s *Stmt) Exec(args ...interface{}) (int64, error) {
+    for i, v := range args {
+        if t, ok := v.(time.Time); ok {
+            args[i] = t.UnixNano()
+        }
+    }
+
     var n int64
     if s.action == ActionCount {
         rows, e := D.Query(s.countStmt(), args...)
