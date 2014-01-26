@@ -19,6 +19,7 @@ type Config struct {
     User   string
     Pass   string
     DBname string
+    MaxConn int
 }
 
 func Init(c *Config, l *log.Logger) {
@@ -36,6 +37,10 @@ func NewDB() *sql.DB {
 
     if db, e = sql.Open(C.Type, dsn); e != nil {
         log.Fatal(e)
+    }
+
+    if C.MaxConn > 0 {
+        db.SetMaxOpenConns(C.MaxConn)
     }
 
     if e = db.Ping(); e != nil {

@@ -126,6 +126,9 @@ func initOrm() {
         if v, ok := c.String("dbname"); ok {
             dbc.DBname = v
         }
+        if v, ok := c.Int("max_conn"); ok {
+            dbc.MaxConn = v
+        }
 
         orm.Init(dbc, L)
     }

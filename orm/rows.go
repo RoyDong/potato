@@ -60,7 +60,7 @@ func (r *Rows) ScanEntity(entities ...interface{}) error {
         }
     }
 
-    if e := r.Rows.Scan(row...); e != nil {
+    if e := r.Scan(row...); e != nil {
         return e
     }
 
@@ -70,4 +70,13 @@ func (r *Rows) ScanEntity(entities ...interface{}) error {
     }
 
     return nil
+}
+
+func (r *Rows) ScanRow(entities ...interface{}) error {
+    defer r.Close()
+    if r.Next() {
+        return r.ScanEntity(entities...)
+    }
+
+    return errors.New("orm: no result found")
 }
