@@ -28,6 +28,11 @@ func (c *Controller) Redirect(url string, code int) {
     panic("redirect")
 }
 
+func (c *Controller) RenderText(t string) {
+    c.Response.Write([]byte(t))
+    c.Response.Sent = true
+}
+
 func (c *Controller) Render(name string, data interface{}) {
     if t := T.Template(c.Layout); t != nil {
         html := NewHtml()
