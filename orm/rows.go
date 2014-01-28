@@ -37,7 +37,7 @@ func (r *Rows) ScanEntity(entities ...interface{}) error {
 
         for i := 0; i < val.NumField(); i++ {
             f := typ.Field(i)
-            if col := f.Tag.Get("column"); len(col) > 0 {
+            if col := f.Tag.Get(ColumnTagName); len(col) > 0 {
                 k := fmt.Sprintf("_%s_%s", ali, col)
                 if f.Type.Name() == "Time" {
                     times[k] = val.Field(i)

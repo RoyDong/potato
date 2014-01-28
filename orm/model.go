@@ -10,6 +10,8 @@ import (
 var (
     tables = make(map[string]string)
     models = make(map[string]*Model)
+
+    ColumnTagName = "column"
 )
 
 type Model struct {
@@ -23,7 +25,7 @@ func NewModel(table string, v interface{}) *Model {
     n := t.NumField()
     cols := make([]string, 0, n)
     for i := 0; i < n; i++ {
-        if col := t.Field(i).Tag.Get("column"); len(col) > 0 {
+        if col := t.Field(i).Tag.Get(ColumnTagName); len(col) > 0 {
             cols = append(cols, col)
         }
     }
@@ -54,7 +56,7 @@ func Save(entity interface{}) bool {
     vals := make([]interface{}, 0, n)
     for i := 0; i < n; i++ {
         f := val.Field(i)
-        col := typ.Field(i).Tag.Get("column")
+        col := typ.Field(i).Tag.Get(ColumnTagName)
         if len(col) > 0 {
             ifc := f.Interface()
             cols = append(cols, col)
