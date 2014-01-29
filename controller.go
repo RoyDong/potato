@@ -59,7 +59,7 @@ func (c *Controller) RenderJson(v interface{}) {
         L.Println(e)
     }
 
-    c.Response.Header().Set("Content-Type", "application/json")
+    c.Response.Header().Set("Content-Type", "application/json; charset=utf8")
     c.Response.Write(json)
     c.Response.Sent = true
 }

@@ -2,7 +2,6 @@ package potato
 
 import (
     ws "code.google.com/p/go.net/websocket"
-    "log"
     "net/http"
     "reflect"
     "regexp"
@@ -11,6 +10,11 @@ import (
 
 const (
     CodeTerminate = 0
+)
+
+var (
+    ErrorRouteName string
+    NotfoundRouteName string
 )
 
 type Route struct {
@@ -35,19 +39,20 @@ type PrefixedRoutes struct {
 
 type Router struct {
     Event
-    ws  ws.Server
-
-    //all grouped routes
-    routes []*PrefixedRoutes
-
-    controllers map[string]reflect.Type
+    ws            ws.Server
+    routes        []*PrefixedRoutes
+    errorRoute    *Route
+    notfoundRoute *Route
+    controllers   map[string]reflect.Type
 }
 
 func NewRouter() *Router {
     return &Router{
-        Event:       Event{make(map[string][]EventHandler)},
-        ws:          ws.Server{},
-        controllers: make(map[string]reflect.Type),
+        Event:         Event{make(map[string][]EventHandler)},
+        ws:            ws.Server{},
+        controllers:   make(map[string]reflect.Type),
+        errorRoute :   &Route{},
+        notfoundRoute: &Route{},
     }
 }
 
@@ -67,7 +72,7 @@ func (rt *Router) SetControllers(cs map[string]interface{}) {
 
 func (rt *Router) LoadRouteConfig(filename string) {
     if e := LoadYaml(&rt.routes, filename); e != nil {
-        log.Fatal(e)
+        L.Fatal(e)
     }
 
     for _, pr := range rt.routes {
@@ -76,6 +81,12 @@ func (rt *Router) LoadRouteConfig(filename string) {
         pr.Regexp = regexp.MustCompile("^" + pr.Prefix + "(.*)$")
         for _, r := range pr.Routes {
             r.Regexp = regexp.MustCompile("^" + r.Pattern + "$")
+            if r.Name == ErrorRouteName {
+                rt.errorRoute = r
+            }
+            if r.Name == NotfoundRouteName {
+                rt.notfoundRoute = r
+            }
         }
     }
 }
@@ -123,39 +134,40 @@ func (rt *Router) route(path string) (*Route, map[string]string) {
         }
     }
 
-    return nil, nil
+    return rt.notfoundRoute, make(map[string]string)
 }
 
 func (rt *Router) dispatch(route *Route, r *Request, p *Response) {
     defer func() {
         if e := recover(); e != nil {
-            if code, ok := e.(int); ok {
-                if code == CodeTerminate {
-                    return
-                }
+            if code, ok := e.(int); ok && code == CodeTerminate {
+                return
             }
 
-            rt.TriggerEvent("error", e, r, p)
+            r.Bag.Set("error", e, true)
+            rt.run(rt.errorRoute, r, p)
             L.Println(e)
         }
     }()
 
-    if route != nil {
-        if t, has := rt.controllers[route.Controller]; has {
-            c := NewController(t, r, p)
-            rt.TriggerEvent("controller_start", c, r, p)
-            if action := c.MethodByName(route.Action); action.IsValid() {
+    rt.run(route, r, p)
+}
 
-                //if controller has Init method, run it first
-                if init := c.MethodByName("Init"); init.IsValid() {
-                    init.Call(nil)
-                }
+func (rt *Router) run(route *Route, r *Request, p *Response) {
+    if t, has := rt.controllers[route.Controller]; has {
+        c := NewController(t, r, p)
+        rt.TriggerEvent("controller_start", c, r, p)
+        if action := c.MethodByName(route.Action); action.IsValid() {
 
-                rt.TriggerEvent("action_start", c, r, p)
-                action.Call(nil)
-                rt.TriggerEvent("action_end", c, r, p)
-                return
+            //if controller has Init method, run it first
+            if init := c.MethodByName("Init"); init.IsValid() {
+                init.Call(nil)
             }
+
+            rt.TriggerEvent("action_start", c, r, p)
+            action.Call(nil)
+            rt.TriggerEvent("action_end", c, r, p)
+            return
         }
     }
 

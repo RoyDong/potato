@@ -1,11 +1,8 @@
 package potato
 
 import (
-    "fmt"
     "github.com/roydong/potato/orm"
     "log"
-    "net"
-    "net/http"
     "os"
     "strings"
 )
@@ -57,6 +54,14 @@ func Init() {
 
     if v, ok := C.String("session_cookie_name"); ok {
         SessionCookieName = v
+    }
+
+    if v, ok := C.String("error_route_name"); ok {
+        ErrorRouteName = v
+    }
+
+    if v, ok := C.String("notfound_route_name"); ok {
+        NotfoundRouteName = v
     }
 
     if v, ok := C.String("sock_file"); ok {
@@ -132,32 +137,4 @@ func initOrm() {
 
         orm.Init(dbc, L)
     }
-}
-
-func Serve() {
-    var e error
-    var lsn net.Listener
-
-    if len(SockFile) > 0 {
-        os.Remove(SockFile)
-        lsn, e = net.Listen("unix", SockFile)
-        if e != nil {
-            L.Println("fail to open socket file", e)
-        } else {
-            os.Chmod(SockFile, os.ModePerm)
-        }
-    }
-
-    if lsn == nil {
-        lsn, e = net.Listen("tcp", fmt.Sprintf(":%d", Port))
-    }
-
-    if e != nil {
-        L.Fatal(e)
-    }
-
-    fmt.Println("work work")
-    s := &http.Server{Handler: R}
-    L.Println(s.Serve(lsn))
-    lsn.Close()
 }
