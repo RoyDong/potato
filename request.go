@@ -10,10 +10,9 @@ type Request struct {
     *http.Request
     WSConn     *ws.Conn
     params     map[string]string
-    RemoteIP   string
-    RemotePort int
     Session    *Session
     Cookies    []*http.Cookie
+    Bag        *Tree
 }
 
 func NewRequest(r *http.Request, p map[string]string) *Request {
@@ -21,14 +20,10 @@ func NewRequest(r *http.Request, p map[string]string) *Request {
         Request: r,
         params:  p,
         Cookies: r.Cookies(),
+        Bag: NewTree(nil),
     }
 
     return rq
-}
-
-func (r *Request) SiteAddr() string {
-    //TODO
-    return ""
 }
 
 func (r *Request) IsAjax() bool {

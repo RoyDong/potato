@@ -7,7 +7,6 @@ import (
     "math/rand"
     "os"
     "regexp"
-    "strings"
 )
 
 const (

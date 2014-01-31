@@ -37,7 +37,7 @@ func (r *Rows) ScanEntity(entities ...interface{}) error {
 
         for i := 0; i < val.NumField(); i++ {
             f := typ.Field(i)
-            if col := f.Tag.Get("column"); len(col) > 0 {
+            if col := f.Tag.Get(ColumnTagName); len(col) > 0 {
                 k := fmt.Sprintf("_%s_%s", ali, col)
                 if f.Type.Name() == "Time" {
                     times[k] = val.Field(i)
@@ -60,7 +60,7 @@ func (r *Rows) ScanEntity(entities ...interface{}) error {
         }
     }
 
-    if e := r.Rows.Scan(row...); e != nil {
+    if e := r.Scan(row...); e != nil {
         return e
     }
 
@@ -70,4 +70,13 @@ func (r *Rows) ScanEntity(entities ...interface{}) error {
     }
 
     return nil
+}
+
+func (r *Rows) ScanRow(entities ...interface{}) error {
+    defer r.Close()
+    if r.Next() {
+        return r.ScanEntity(entities...)
+    }
+
+    return errors.New("orm: no result found")
 }

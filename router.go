@@ -2,8 +2,6 @@ package potato
 
 import (
     ws "code.google.com/p/go.net/websocket"
-    "fmt"
-    "log"
     "net/http"
     "reflect"
     "regexp"
@@ -97,7 +95,7 @@ func NewRouter() *Router {
 }
 
 func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-    route, params := rt.Route(r.URL.Path)
+    route, params := rt.route(r.URL.Path)
     request := NewRequest(r, params)
     if strings.ToLower(r.Header.Get("Upgrade")) == "websocket" {
         if conn := rt.ws.Conn(w, r); conn != nil {
@@ -109,18 +107,11 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     response := &Response{ResponseWriter: w}
     InitSession(request, response)
     rt.TriggerEvent("request_start", request, response)
-
-    if route == nil {
-        rt.handleError("page not found",
-            request, response)
-    } else {
-        rt.Dispatch(route, request, response)
-    }
-
+    rt.dispatch(route, request, response)
     rt.TriggerEvent("request_end", request, response)
 }
 
-func (rt *Router) Route(path string) (*Route, map[string]string) {
+func (rt *Router) route(path string) (*Route, map[string]string) {
 
     //case insensitive
     //make sure the patterns in routes.yml is lower case too
@@ -146,62 +137,43 @@ func (rt *Router) Route(path string) (*Route, map[string]string) {
         }
     }
 
-    return nil, nil
+    return rt.notfoundRoute, make(map[string]string)
 }
 
-func (rt *Router) Dispatch(route *Route, r *Request, p *Response) {
-
-    //handle panic
+func (rt *Router) dispatch(route *Route, r *Request, p *Response) {
     defer func() {
         if e := recover(); e != nil {
-            rt.handleError(e, r, p)
+            if code, ok := e.(int); ok && code == CodeTerminate {
+                return
+            }
+
+            r.Bag.Set("error", e, true)
+            rt.run(rt.errorRoute, r, p)
+            L.Println(e)
         }
     }()
 
-    if t, has := rt.controllers[route.Controller]; has {
-        c := NewController(t, r, p)
-        rt.TriggerEvent("controller_start", r, p, c)
-
-        //if action not found check the NotFound method
-        action := c.MethodByName(route.Action)
-        if !action.IsValid() {
-            panic("page not found")
-        }
-
-        //if controller has Init method, run it first
-        if init := c.MethodByName("Init"); init.IsValid() {
-            init.Call(nil)
-        }
-
-        rt.TriggerEvent("action_start", r, p, c)
-        action.Call(nil)
-        rt.TriggerEvent("action_end", r, p, c)
-    } else {
-        panic("page not found")
-    }
+    rt.run(route, r, p)
 }
 
-func (rt *Router) handleError(e interface{}, r *Request, p *Response) {
-    var message string
-    if v, ok := e.(string); ok {
-        message = v
-    } else if v, ok := e.(error); ok {
-        message = v.Error()
-    }
+func (rt *Router) run(route *Route, r *Request, p *Response) {
+    if t, has := rt.controllers[route.Controller]; has {
+        c := NewController(t, r, p)
+        rt.TriggerEvent("controller_start", c, r, p)
+        if action := c.MethodByName(route.Action); action.IsValid() {
 
-    if message == "redirect" {
-        return
-    }
+            //if controller has Init method, run it first
+            if init := c.MethodByName("Init"); init.IsValid() {
+                init.Call(nil)
+            }
 
-    rt.TriggerEvent("error", r, p, message)
-    if !p.Sent {
-        if r.IsAjax() {
-            message = fmt.Sprintf(`{error:"%s"}`,
-                strings.Replace(message, `"`, `\"`, -1))
+            rt.TriggerEvent("action_start", c, r, p)
+            action.Call(nil)
+            rt.TriggerEvent("action_end", c, r, p)
+            return
         }
-        p.Write([]byte(message))
-        p.Sent = true
     }
 
-    L.Println(e)
+    p.WriteHeader(404)
+    p.Write([]byte("page not found"))
 }

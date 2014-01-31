@@ -25,7 +25,12 @@ func NewController(t reflect.Type, r *Request, p *Response) reflect.Value {
 
 func (c *Controller) Redirect(url string, code int) {
     http.Redirect(c.Response, c.Request.Request, url, code)
-    panic("redirect")
+    panic(CodeTerminate)
+}
+
+func (c *Controller) RenderText(t string) {
+    c.Response.Write([]byte(t))
+    c.Response.Sent = true
 }
 
 func (c *Controller) Render(name string, data interface{}) {
@@ -54,6 +59,7 @@ func (c *Controller) RenderJson(v interface{}) {
         L.Println(e)
     }
 
+    c.Response.Header().Set("Content-Type", "application/json; charset=utf8")
     c.Response.Write(json)
     c.Response.Sent = true
 }

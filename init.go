@@ -1,10 +1,8 @@
 package potato
 
 import (
-    "fmt"
+    "github.com/roydong/potato/orm"
     "log"
-    "net"
-    "net/http"
     "os"
     "strings"
 )
@@ -40,10 +38,11 @@ type appDir struct {
 
 func Init() {
     //initialize config
-    C = new(Tree)
-    if e := LoadYaml(&C.data, Dir.Config+"config.yml"); e != nil {
+    var data map[interface{}]interface{}
+    if e := LoadYaml(&data, Dir.Config+"config.yml"); e != nil {
         log.Fatal(e)
     }
+    C = NewTree(data)
 
     if name, ok := C.String("name"); ok {
         AppName = name
@@ -57,6 +56,14 @@ func Init() {
         SessionCookieName = v
     }
 
+    if v, ok := C.String("error_route_name"); ok {
+        ErrorRouteName = v
+    }
+
+    if v, ok := C.String("notfound_route_name"); ok {
+        NotfoundRouteName = v
+    }
+
     if v, ok := C.String("sock_file"); ok {
         SockFile = v
     }
@@ -67,10 +74,6 @@ func Init() {
     if dir, ok := C.String("log_dir"); ok {
         dir = strings.Trim(dir, "./")
         Dir.Log = dir + "/"
-    }
-    if dir, ok := C.String("session_dir"); ok {
-        dir = strings.Trim(dir, "./")
-        SessionDir = dir + "/"
     }
 
     //logger
@@ -95,33 +98,43 @@ func Init() {
     //template
     T = NewTemplate(Dir.Template)
 
-    SessionStart()
+    initOrm()
+    go sessionExpire()
 }
 
-func Serve() {
-    var e error
-    var lsn net.Listener
-
-    if len(SockFile) > 0 {
-        os.Remove(SockFile)
-        lsn, e = net.Listen("unix", SockFile)
-        if e != nil {
-            L.Println("fail to open socket file", e)
-        } else {
-            os.Chmod(SockFile, os.ModePerm)
+func initOrm() {
+    if c, ok := C.Tree("sql"); ok {
+        dbc := &orm.Config{
+            Type:   "mysql",
+            Host:   "localhost",
+            Port:   3306,
+            User:   "root",
+            Pass:   "",
+            DBname: "",
         }
-    }
 
-    if lsn == nil {
-        lsn, e = net.Listen("tcp", fmt.Sprintf(":%d", Port))
-    }
+        if v, ok := c.String("type"); ok {
+            dbc.Type = v
+        }
+        if v, ok := c.String("host"); ok {
+            dbc.Host = v
+        }
+        if v, ok := c.Int("port"); ok {
+            dbc.Port = v
+        }
+        if v, ok := c.String("user"); ok {
+            dbc.User = v
+        }
+        if v, ok := c.String("pass"); ok {
+            dbc.Pass = v
+        }
+        if v, ok := c.String("dbname"); ok {
+            dbc.DBname = v
+        }
+        if v, ok := c.Int("max_conn"); ok {
+            dbc.MaxConn = v
+        }
 
-    if e != nil {
-        L.Fatal(e)
+        orm.Init(dbc, L)
     }
-
-    fmt.Println("work work")
-    s := &http.Server{Handler: R}
-    L.Println(s.Serve(lsn))
-    lsn.Close()
 }
