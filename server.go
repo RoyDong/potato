@@ -1,6 +1,7 @@
 package potato
 
 import (
+    ws "code.google.com/p/go.net/websocket"
     "fmt"
     "net"
     "net/http"
@@ -30,7 +31,7 @@ func Serve() {
     }
 
     fmt.Println("work work")
-    s := &http.Server{Handler: R}
+    s := &http.Server{Handler: &Router{ws.Server{}}}
     L.Println(s.Serve(lsn))
     lsn.Close()
 }

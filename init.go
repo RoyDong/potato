@@ -22,9 +22,9 @@ var (
         Log:        "log/",
     }
 
+    E = &Event{make(map[string][]EventHandler)}
     C   *Tree
     L   *log.Logger
-    R   *Router
     T   *Template
 )
 
@@ -36,7 +36,9 @@ type appDir struct {
     Log        string
 }
 
+
 func Init() {
+    E.TriggerEvent("frame_init_start")
     //initialize config
     var data map[interface{}]interface{}
     if e := LoadYaml(&data, Dir.Config+"config.yml"); e != nil {
@@ -54,14 +56,6 @@ func Init() {
 
     if v, ok := C.String("session_cookie_name"); ok {
         SessionCookieName = v
-    }
-
-    if v, ok := C.String("error_route_name"); ok {
-        ErrorRouteName = v
-    }
-
-    if v, ok := C.String("notfound_route_name"); ok {
-        NotfoundRouteName = v
     }
 
     if v, ok := C.String("sock_file"); ok {
@@ -91,15 +85,16 @@ func Init() {
 
     L = log.New(logio, "", log.LstdFlags)
 
-    //router
-    R = NewRouter()
-    R.LoadRouteConfig(Dir.Config + "routes.yml")
-
     //template
     T = NewTemplate(Dir.Template)
 
+    E.TriggerEvent("orm_init_start")
     initOrm()
+    E.TriggerEvent("orm_init_end")
+
     go sessionExpire()
+
+    E.TriggerEvent("frame_init_end")
 }
 
 func initOrm() {

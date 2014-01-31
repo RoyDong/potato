@@ -9,13 +9,13 @@ import (
 type Request struct {
     *http.Request
     WSConn     *ws.Conn
-    params     map[string]string
+    params     []string
     Session    *Session
     Cookies    []*http.Cookie
     Bag        *Tree
 }
 
-func NewRequest(r *http.Request, p map[string]string) *Request {
+func NewRequest(r *http.Request, p []string) *Request {
     rq := &Request{
         Request: r,
         params:  p,
@@ -61,8 +61,11 @@ func (r *Request) Float(k string) (float64, bool) {
 }
 
 func (r *Request) String(k string) (string, bool) {
-    if v, has := r.params[k]; has {
-        return v, true
+    if k[0] == '$' {
+        n, e := strconv.ParseInt(k[1:], 10, 0)
+        if e == nil && n > 0 && int(n) <= len(r.params) {
+            return r.params[n - 1], true
+        }
     }
 
     if v := r.FormValue(k); len(v) > 0 {
@@ -83,4 +86,32 @@ func (r *Request) Cookie(name string) *http.Cookie {
     }
 
     return nil
+}
+
+func (r *Request) WSReceive() string {
+    var txt string
+    if e := ws.Message.Receive(r.WSConn, &txt); e != nil {
+        L.Println(e)
+        return ""
+    }
+
+    return txt
+}
+
+func (r *Request) WSSend(txt string) bool {
+    if e := ws.Message.Send(r.WSConn, txt); e != nil {
+        L.Println(e)
+        return false
+    }
+
+    return true
+}
+
+func (r *Request) WSSendJson(v interface{}) bool {
+    if e := ws.JSON.Send(r.WSConn, v); e != nil {
+        L.Println(e)
+        return false
+    }
+
+    return true
 }

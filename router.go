@@ -3,7 +3,6 @@ package potato
 import (
     ws "code.google.com/p/go.net/websocket"
     "net/http"
-    "reflect"
     "regexp"
     "strings"
 )
@@ -12,12 +11,7 @@ const (
     CodeTerminate = 0
 )
 
-var (
-    ErrorRouteName string
-    NotfoundRouteName string
-)
-
-type Action func(r *Request, p *response)
+type Action func(r *Request, p *Response)
 
 type route struct {
     name   string
@@ -26,38 +20,47 @@ type route struct {
     action Action
 }
 
-var route = &route{"", make([]*route, 0)}
+var rootRoute = &route{"", make([]*route, 0), nil, nil}
 
-func (r *route) route(path string) (*route, bool) {
+func (r *route) parse(path string) (*route, []string) {
     current := r
-    nodes := string.Split(path)
+    params := []string{}
+    nodes := strings.Split(strings.Trim(path, "/"), "/")
     for _, name := range nodes {
         found := false
         for _, route := range current.routes {
-            if node == route.name {
-                current = route
+            if name == route.name {
                 found = true
+                current = route
                 break
+            } else if route.regexp != nil {
+                subs := route.regexp.FindStringSubmatch(name)
+                if len(subs) >= 2 {
+                    found = true
+                    params = append(params, subs[1:]...)
+                    current = route
+                    break
+                }
             }
         }
 
         if !found {
-            return nil, false
+            return nil, nil
         }
     }
 
-    return current, true
+    return current, params
 }
 
 func (r *route) set(path string, action Action) {
     current := r
-    nodes := string.Split(path)
+    nodes := strings.Split(strings.Trim(path, "/"), "/")
     for _, name := range nodes {
         var found bool
-        var route *route
-        for _, route = range current.routes {
-            if name == route.name {
-                current = route
+        var rt *route
+        for _, rt = range current.routes {
+            if name == rt.name {
+                current = rt
                 found = true
                 break
             }
@@ -68,34 +71,34 @@ func (r *route) set(path string, action Action) {
             if strings.Contains(name, "(") {
                 r = regexp.MustCompile("^" + name + "$")
             }
-            route = &route{name, make([]*route, 0), r}
-            current.routes = append(next.routes, route)
+            rt = &route{name, make([]*route, 0), r, nil}
+            current.routes = append(current.routes, rt)
         }
 
-        current = route
+        current = rt
     }
 
     current.action = action
 }
 
 func SetAction(pattern string, action Action) {
-    route.set(pattern, action)
+    rootRoute.set(pattern, action)
+}
+
+func SetErrorAction(action Action) {
+    errorAction = action
+}
+
+func SetNotfoundAction(action Action) {
+    notfoundAction = action
 }
 
 type Router struct {
-    Event
-    ws            ws.Server
-}
-
-func NewRouter() *Router {
-    return &Router{
-        Event{make(map[string][]EventHandler)},
-        ws.Server{},
-    }
+    ws ws.Server
 }
 
 func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-    route, params := rt.route(r.URL.Path)
+    route, params := rootRoute.parse(r.URL.Path)
     request := NewRequest(r, params)
     if strings.ToLower(r.Header.Get("Upgrade")) == "websocket" {
         if conn := rt.ws.Conn(w, r); conn != nil {
@@ -104,76 +107,36 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         }
     }
 
-    response := &Response{ResponseWriter: w}
+    response := &Response{w, "layout"}
     InitSession(request, response)
-    rt.TriggerEvent("request_start", request, response)
-    rt.dispatch(route, request, response)
-    rt.TriggerEvent("request_end", request, response)
-}
 
-func (rt *Router) route(path string) (*Route, map[string]string) {
-
-    //case insensitive
-    //make sure the patterns in routes.yml is lower case too
-    path = strings.ToLower(path)
-
-    //check prefixes
-    for _, pr := range rt.routes {
-        if m := pr.Regexp.FindStringSubmatch(path); len(m) == 2 {
-
-            //check routes on matched prefix
-            for _, r := range pr.Routes {
-                if p := r.Regexp.FindStringSubmatch(m[1]); len(p) > 0 {
-
-                    //get params for matched route
-                    params := make(map[string]string, len(p)-1)
-                    for i, v := range p[1:] {
-                        params[r.Keys[i]] = v
-                    }
-
-                    return r, params
-                }
-            }
-        }
-    }
-
-    return rt.notfoundRoute, make(map[string]string)
-}
-
-func (rt *Router) dispatch(route *Route, r *Request, p *Response) {
     defer func() {
         if e := recover(); e != nil {
             if code, ok := e.(int); ok && code == CodeTerminate {
                 return
             }
-
-            r.Bag.Set("error", e, true)
-            rt.run(rt.errorRoute, r, p)
-            L.Println(e)
+            request.Bag.Set("error", e, true)
+            errorAction(request, response)
         }
     }()
 
-    rt.run(route, r, p)
-}
+    E.TriggerEvent("request_start", request, response)
 
-func (rt *Router) run(route *Route, r *Request, p *Response) {
-    if t, has := rt.controllers[route.Controller]; has {
-        c := NewController(t, r, p)
-        rt.TriggerEvent("controller_start", c, r, p)
-        if action := c.MethodByName(route.Action); action.IsValid() {
-
-            //if controller has Init method, run it first
-            if init := c.MethodByName("Init"); init.IsValid() {
-                init.Call(nil)
-            }
-
-            rt.TriggerEvent("action_start", c, r, p)
-            action.Call(nil)
-            rt.TriggerEvent("action_end", c, r, p)
-            return
-        }
+    if route == nil {
+        notfoundAction(request, response)
+    } else {
+        route.action(request, response)
     }
 
+    E.TriggerEvent("request_end", request, response)
+}
+
+var notfoundAction = func(r *Request, p *Response) {
     p.WriteHeader(404)
     p.Write([]byte("page not found"))
+}
+
+var errorAction = func(r *Request, p *Response) {
+    p.WriteHeader(500)
+    p.Write([]byte("we have got some error"))
 }
