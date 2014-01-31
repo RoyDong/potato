@@ -10,70 +10,89 @@ import (
     "strings"
 )
 
-type Route struct {
-    Name       string   `yaml:"name"`
-    Controller string   `yaml:"controller"`
-    Action     string   `yaml:"action"`
-    Pattern    string   `yaml:"pattern"`
-    Keys       []string `yaml:"keys"`
-    Regexp     *regexp.Regexp
+const (
+    CodeTerminate = 0
+)
+
+var (
+    ErrorRouteName string
+    NotfoundRouteName string
+)
+
+type Action func(r *Request, p *response)
+
+type route struct {
+    name   string
+    routes []*route
+    regexp *regexp.Regexp
+    action Action
 }
 
-/**
- * routes are grouped by their prefixes
- * when routing a url, first match the prefixes
- * then match the patterns of each route
- */
-type PrefixedRoutes struct {
-    Prefix string `yaml:"prefix"`
-    Regexp *regexp.Regexp
-    Routes []*Route `yaml:"routes"`
+var route = &route{"", make([]*route, 0)}
+
+func (r *route) route(path string) (*route, bool) {
+    current := r
+    nodes := string.Split(path)
+    for _, name := range nodes {
+        found := false
+        for _, route := range current.routes {
+            if node == route.name {
+                current = route
+                found = true
+                break
+            }
+        }
+
+        if !found {
+            return nil, false
+        }
+    }
+
+    return current, true
+}
+
+func (r *route) set(path string, action Action) {
+    current := r
+    nodes := string.Split(path)
+    for _, name := range nodes {
+        var found bool
+        var route *route
+        for _, route = range current.routes {
+            if name == route.name {
+                current = route
+                found = true
+                break
+            }
+        }
+
+        if !found {
+            var r *regexp.Regexp
+            if strings.Contains(name, "(") {
+                r = regexp.MustCompile("^" + name + "$")
+            }
+            route = &route{name, make([]*route, 0), r}
+            current.routes = append(next.routes, route)
+        }
+
+        current = route
+    }
+
+    current.action = action
+}
+
+func SetAction(pattern string, action Action) {
+    route.set(pattern, action)
 }
 
 type Router struct {
     Event
-    ws  ws.Server
-
-    //all grouped routes
-    routes []*PrefixedRoutes
-
-    controllers map[string]reflect.Type
+    ws            ws.Server
 }
 
 func NewRouter() *Router {
     return &Router{
-        Event:       Event{make(map[string][]EventHandler)},
-        ws:          ws.Server{},
-        controllers: make(map[string]reflect.Type),
-    }
-}
-
-/**
- * Controllers register controllers on router
- */
-func (rt *Router) SetControllers(cs map[string]interface{}) {
-    for n, c := range cs {
-        elem := reflect.Indirect(reflect.ValueOf(c))
-
-        //Controller must embeded from potato.Controller
-        if elem.FieldByName("Controller").CanSet() {
-            rt.controllers[n] = elem.Type()
-        }
-    }
-}
-
-func (rt *Router) LoadRouteConfig(filename string) {
-    if e := LoadYaml(&rt.routes, filename); e != nil {
-        log.Fatal(e)
-    }
-
-    for _, pr := range rt.routes {
-
-        //prepare regexps for prefixed routes
-        pr.Regexp = regexp.MustCompile("^" + pr.Prefix + "(.*)$")
-        for _, r := range pr.Routes {
-            r.Regexp = regexp.MustCompile("^" + r.Pattern + "$")
-        }
+        Event{make(map[string][]EventHandler)},
+        ws.Server{},
     }
 }
 

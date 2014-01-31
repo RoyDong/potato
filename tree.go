@@ -50,7 +50,7 @@ func (t *Tree) Set(path string, v interface{}, f bool) bool {
 
     //if the loop upove is ended by break
     //then create the rest nodes of the path
-    if i < last-1 {
+    if i < last - 1 {
         for _, n = range nodes[i:last] {
             d := make(map[interface{}]interface{}, 1)
             data[n] = d
