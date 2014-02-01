@@ -137,7 +137,7 @@ var notfoundAction = func(r *Request, p *Response) {
 }
 
 var errorAction = func(r *Request, p *Response) {
-    msg, has := r.Bag.String("error")
+    msg, _ := r.Bag.String("error")
     p.WriteHeader(500)
     p.Write([]byte("we'v got some error " + msg))
 }
