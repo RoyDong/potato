@@ -90,11 +90,11 @@ func Init() {
 
     E.TriggerEvent("orm_init_start")
     initOrm()
-    E.TriggerEvent("orm_init_end")
+    E.TriggerEvent("orm_init_done")
 
     go sessionExpire()
 
-    E.TriggerEvent("frame_init_end")
+    E.TriggerEvent("frame_init_done")
 }
 
 func initOrm() {

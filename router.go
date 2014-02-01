@@ -128,7 +128,7 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         route.action(request, response)
     }
 
-    E.TriggerEvent("request_end", request, response)
+    E.TriggerEvent("request_done", request, response)
 }
 
 var notfoundAction = func(r *Request, p *Response) {
@@ -137,6 +137,7 @@ var notfoundAction = func(r *Request, p *Response) {
 }
 
 var errorAction = func(r *Request, p *Response) {
+    msg, has := r.Bag.String("error")
     p.WriteHeader(500)
-    p.Write([]byte("we have got some error"))
+    p.Write([]byte("we'v got some error " + msg))
 }
