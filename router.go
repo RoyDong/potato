@@ -81,16 +81,10 @@ func (r *route) set(path string, action Action) {
     current.action = action
 }
 
-func SetAction(pattern string, action Action) {
-    rootRoute.set(pattern, action)
-}
-
-func SetErrorAction(action Action) {
-    errorAction = action
-}
-
-func SetNotfoundAction(action Action) {
-    notfoundAction = action
+func SetAction(action Action, patterns ...string) {
+    for _, pattern := range patterns {
+        rootRoute.set(pattern, action)
+    }
 }
 
 type Router struct {
@@ -116,14 +110,14 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
                 return
             }
             request.Bag.Set("error", e, true)
-            errorAction(request, response)
+            ErrorAction(request, response)
         }
     }()
 
     E.TriggerEvent("request_start", request, response)
 
     if route == nil {
-        notfoundAction(request, response)
+        NotfoundAction(request, response)
     } else {
         route.action(request, response)
     }
@@ -131,12 +125,12 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     E.TriggerEvent("request_done", request, response)
 }
 
-var notfoundAction = func(r *Request, p *Response) {
+var NotfoundAction = func(r *Request, p *Response) {
     p.WriteHeader(404)
     p.Write([]byte("page not found"))
 }
 
-var errorAction = func(r *Request, p *Response) {
+var ErrorAction = func(r *Request, p *Response) {
     msg, _ := r.Bag.String("error")
     p.WriteHeader(500)
     p.Write([]byte("we'v got some error " + msg))
