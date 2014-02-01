@@ -81,7 +81,7 @@ func (t *Tree) Set(path string, v interface{}, f bool) bool {
  * Value returns the data found by path
  * path is a string with node names divided by dot(.)
  */
-func (t *Tree) Value(path string) interface{} {
+func (t *Tree) Get(path string) interface{} {
     nodes := strings.Split(path, ".")
     n := len(nodes) - 1
     if data, ok := t.find(nodes[:n]); ok {
@@ -107,7 +107,7 @@ func (t *Tree) Clear() {
 }
 
 func (t *Tree) Int(path string) (int, bool) {
-    if v := t.Value(path); v != nil {
+    if v := t.Get(path); v != nil {
         i, ok := v.(int)
         return i, ok
     }
@@ -116,7 +116,7 @@ func (t *Tree) Int(path string) (int, bool) {
 }
 
 func (t *Tree) Int64(path string) (int64, bool) {
-    if v := t.Value(path); v != nil {
+    if v := t.Get(path); v != nil {
         i, ok := v.(int64)
         return i, ok
     }
@@ -125,7 +125,7 @@ func (t *Tree) Int64(path string) (int64, bool) {
 }
 
 func (t *Tree) Float64(path string) (float64, bool) {
-    if v := t.Value(path); v != nil {
+    if v := t.Get(path); v != nil {
         f, ok := v.(float64)
         return f, ok
     }
@@ -134,7 +134,7 @@ func (t *Tree) Float64(path string) (float64, bool) {
 }
 
 func (t *Tree) String(path string) (string, bool) {
-    if v := t.Value(path); v != nil {
+    if v := t.Get(path); v != nil {
         s, ok := v.(string)
         return s, ok
     }
