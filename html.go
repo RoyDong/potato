@@ -82,7 +82,6 @@ func (t *Template) AddFuncs(funcs map[string]interface{}) {
         t.funcs[k] = f
     }
     t.root.Funcs(t.funcs)
-    t.loadTemplateFiles(t.dir)
 }
 
 /**

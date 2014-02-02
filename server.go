@@ -2,6 +2,7 @@ package potato
 
 import (
     ws "code.google.com/p/go.net/websocket"
+    "fmt"
     "net"
     "net/http"
     "os"
@@ -26,6 +27,7 @@ func Serve() {
         L.Fatal(e)
     }
     defer lsn.Close()
+    T.loadTemplateFiles(T.dir)
     L.Println("work work")
     s := &http.Server{Handler: &Router{ws.Server{}}}
     L.Println(s.Serve(lsn))

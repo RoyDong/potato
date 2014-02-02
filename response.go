@@ -12,7 +12,7 @@ type Response struct {
     Layout string
 }
 
-func NewResponse(w http.ResponseWriter) {
+func NewResponse(w http.ResponseWriter) *Response {
     return &Response{w, DefaultLayout}
 }
 
@@ -22,7 +22,7 @@ func (r *Response) SetCookie(c *http.Cookie) {
 
 func (r *Response) Redirect(request *Request, url string, code int) {
     http.Redirect(r, request.Request, url, code)
-    panic(CodeTerminate)
+    panic(TerminateCode)
 }
 
 func (r *Response) RenderText(t string) {
