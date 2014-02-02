@@ -301,7 +301,7 @@ func (s *Stmt) insert(args ...interface{}) (int64, error) {
     stmt := fmt.Sprintf("INSERT INTO `%s` (%s)VALUES(%s)",
         s.table(), strings.Join(c, ","), strings.Join(h, ","))
 
-    result, e := D.Exec(stmt, v...)
+    result, e := DB.Exec(stmt, v...)
     if e != nil {
         return 0, e
     }
@@ -319,7 +319,7 @@ func (s *Stmt) Exec(args ...interface{}) (int64, error) {
 
     var n int64
     if s.action == ActionCount {
-        row := D.QueryRow(s.countStmt(), args...)
+        row := DB.QueryRow(s.countStmt(), args...)
         e := row.Scan(&n)
         return n, e
     }
@@ -332,11 +332,11 @@ func (s *Stmt) Exec(args ...interface{}) (int64, error) {
     }
 
     if s.action == ActionUpdate {
-        result, e = D.Exec(s.updateStmt(), args...)
+        result, e = DB.Exec(s.updateStmt(), args...)
     }
 
     if s.action == ActionDelete {
-        result, e = D.Exec(s.deleteStmt(), args...)
+        result, e = DB.Exec(s.deleteStmt(), args...)
     }
 
     if e != nil {
@@ -348,7 +348,7 @@ func (s *Stmt) Exec(args ...interface{}) (int64, error) {
 }
 
 func (s *Stmt) Query(args ...interface{}) (*Rows, error) {
-    rows, e := D.Query(s.selectStmt(), args...)
+    rows, e := DB.Query(s.selectStmt(), args...)
     if e != nil {
         return nil, e
     }

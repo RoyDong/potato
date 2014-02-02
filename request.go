@@ -15,10 +15,9 @@ type Request struct {
     Bag     *Tree
 }
 
-func NewRequest(r *http.Request, p []string) *Request {
+func NewRequest(r *http.Request) *Request {
     return &Request{
         Request: r,
-        params:  p,
         Cookies: r.Cookies(),
         Bag:     NewTree(nil),
     }
@@ -80,7 +79,7 @@ func (r *Request) Cookie(name string) *http.Cookie {
 func (r *Request) WSReceive() string {
     var txt string
     if e := ws.Message.Receive(r.WSConn, &txt); e != nil {
-        L.Println(e)
+        Logger.Println(e)
         return ""
     }
     return txt
@@ -88,7 +87,7 @@ func (r *Request) WSReceive() string {
 
 func (r *Request) WSSend(txt string) bool {
     if e := ws.Message.Send(r.WSConn, txt); e != nil {
-        L.Println(e)
+        Logger.Println(e)
         return false
     }
     return true
@@ -96,7 +95,7 @@ func (r *Request) WSSend(txt string) bool {
 
 func (r *Request) WSSendJson(v interface{}) bool {
     if e := ws.JSON.Send(r.WSConn, v); e != nil {
-        L.Println(e)
+        Logger.Println(e)
         return false
     }
     return true

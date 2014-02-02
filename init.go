@@ -2,76 +2,80 @@ package potato
 
 import (
     "github.com/roydong/potato/orm"
+    "flag"
     "log"
     "os"
-    "strings"
 )
 
 var (
-    AppName  = "a potato application"
-    Version  = "0.1.0"
+    AppName  string
+    Version  string
+    SockFile string
+    Conf     *Tree
+    Logger   *log.Logger
+    ConfDir  = "config/"
+    TplDir   = "template/"
+    LogDir   = "log/"
     Env      = "prod"
-    SockFile = ""
     Port     = 37221
-
-    Dir = &appDir{
-        Config:   "config/",
-        Template: "template/",
-        Log:      "log/",
-    }
-
-    E   = NewEvent()
-    T   = NewTemplate(Dir.Template)
-    C   *Tree
-    L   *log.Logger
 )
 
-type appDir struct {
-    Config   string
-    Template string
-    Log      string
-}
-
 func Init() {
-    E.TriggerEvent("frame_init_start")
+    event.TriggerEvent("before_init")
+    fp := flag.String("c", "config.yml", "config file")
+    flag.Parse()
 
     //load config
     var data map[interface{}]interface{}
-    if e := LoadYaml(&data, Dir.Config+"config.yml"); e != nil {
+    if e := LoadYaml(&data, *fp); e != nil {
         log.Fatal(e)
     }
-    C = NewTree(data)
+    Conf = NewTree(data)
 
-    if name, ok := C.String("name"); ok {
+    if name, ok := Conf.String("name"); ok {
         AppName = name
     }
 
-    if env, ok := C.String("env"); ok {
+    if env, ok := Conf.String("env"); ok {
         Env = env
     }
 
-    if v, ok := C.String("session_cookie_name"); ok {
+    if v, ok := Conf.String("session_cookie_name"); ok {
         SessionCookieName = v
     }
 
-    if v, ok := C.String("sock_file"); ok {
+    if v, ok := Conf.String("sock_file"); ok {
         SockFile = v
     }
-    if v, ok := C.Int("port"); ok {
+    if v, ok := Conf.Int("port"); ok {
         Port = v
     }
 
-    if v, ok := C.String("default_layout"); ok {
+    if v, ok := Conf.String("default_layout"); ok {
         DefaultLayout = v
     }
 
-    if v, ok := C.String("template_ext"); ok {
+    if v, ok := Conf.String("template_ext"); ok {
         TemplateExt = v
     }
 
-    if dir, ok := C.String("log_dir"); ok {
-        dir = strings.Trim(dir, "./")
-        Dir.Log = dir + "/"
+    if dir, ok := Conf.String("log_dir"); ok {
+        if dir[len(dir)-1] != '/' {
+            dir = dir + "/"
+        }
+        LogDir = dir
+    }
+    if dir, ok := Conf.String("template_dir"); ok {
+        if dir[len(dir)-1] != '/' {
+            dir = dir + "/"
+        }
+        TplDir = dir
+    }
+    if dir, ok := Conf.String("config_dir"); ok {
+        if dir[len(dir)-1] != '/' {
+            dir = dir + "/"
+        }
+        ConfDir = dir
     }
 
     //logger
@@ -80,27 +84,22 @@ func Init() {
         logio = os.Stdout
     } else {
         var e error
-        logio, e = os.OpenFile(Dir.Log+Env+".log",
+        logio, e = os.OpenFile(LogDir+Env+".log",
             os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
         if e != nil {
             log.Fatal("Error init log file:", e)
         }
     }
-    L = log.New(logio, "", log.LstdFlags)
-
-    //init orm
-    E.TriggerEvent("orm_init_start")
+    Logger = log.New(logio, "", log.LstdFlags)
+    tpl = NewTemplate(TplDir)
+    event.TriggerEvent("before_orm_init")
     initOrm()
-    E.TriggerEvent("orm_init_done")
-
-    //start session check
-    go sessionExpire()
-
-    E.TriggerEvent("frame_init_done")
+    event.TriggerEvent("after_orm_init")
+    event.TriggerEvent("after_init")
 }
 
 func initOrm() {
-    if c, ok := C.Tree("sql"); ok {
+    if c, ok := Conf.Tree("sql"); ok {
         dbc := &orm.Config{
             Type:   "mysql",
             Host:   "localhost",
@@ -132,6 +131,6 @@ func initOrm() {
             dbc.MaxConn = v
         }
 
-        orm.Init(dbc, L)
+        orm.Init(dbc, Logger)
     }
 }

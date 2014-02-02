@@ -30,10 +30,10 @@ func (r *Response) RenderText(t string) {
 }
 
 func (r *Response) Render(name string, data interface{}) {
-    if t := T.Template(r.Layout); t != nil {
+    if t := tpl.Template(r.Layout); t != nil {
         html := NewHtml()
         html.Data = data
-        html.Content = T.Include(name, html)
+        html.Content = tpl.Include(name, html)
         t.Execute(r, html)
     } else {
         panic(r.Layout + " template not found")
@@ -41,7 +41,7 @@ func (r *Response) Render(name string, data interface{}) {
 }
 
 func (r *Response) RenderPartial(name string, data interface{}) {
-    if t := T.Template(name); t != nil {
+    if t := tpl.Template(name); t != nil {
         t.Execute(r, data)
     } else {
         panic(name + " template not found")
@@ -51,7 +51,7 @@ func (r *Response) RenderPartial(name string, data interface{}) {
 func (r *Response) RenderJson(v interface{}) {
     json, e := json.Marshal(v)
     if e != nil {
-        L.Println(e)
+        Logger.Println(e)
     }
 
     r.Header().Set("Content-Type", "application/json; charset=utf8")

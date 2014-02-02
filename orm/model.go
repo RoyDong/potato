@@ -87,15 +87,15 @@ func Save(entity interface{}) bool {
 
         stmt := fmt.Sprintf("INSERT INTO `%s` (%s)VALUES(%s)",
             tbl, strings.Join(cs, ","), strings.Join(ph, ","))
-        result, e := D.Exec(stmt, vals...)
+        result, e := DB.Exec(stmt, vals...)
         if e != nil {
-            L.Println(e)
+            Logger.Println(e)
             return false
         }
 
         n, e := result.LastInsertId()
         if e != nil {
-            L.Println(e)
+            Logger.Println(e)
             return false
         }
 
@@ -110,8 +110,8 @@ func Save(entity interface{}) bool {
 
     stmt := fmt.Sprintf("UPDATE `%s` SET %s WHERE `id` = %d",
         tbl, strings.Join(sets, ","), pkv)
-    if _, e := D.Exec(stmt, vals...); e != nil {
-        L.Println(e)
+    if _, e := DB.Exec(stmt, vals...); e != nil {
+        Logger.Println(e)
         return false
     }
 
