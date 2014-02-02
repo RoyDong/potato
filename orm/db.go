@@ -7,9 +7,9 @@ import (
 )
 
 var (
-    D   *sql.DB
-    L   *log.Logger
-    C   *Config
+    D *sql.DB
+    L *log.Logger
+    C *Config
 )
 
 type Config struct {

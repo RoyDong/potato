@@ -77,6 +77,5 @@ func (r *Rows) ScanRow(entities ...interface{}) error {
     if r.Next() {
         return r.ScanEntity(entities...)
     }
-
     return errors.New("orm: no result found")
 }
