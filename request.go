@@ -8,22 +8,20 @@ import (
 
 type Request struct {
     *http.Request
-    WSConn     *ws.Conn
-    params     []string
-    Session    *Session
-    Cookies    []*http.Cookie
-    Bag        *Tree
+    WSConn  *ws.Conn
+    params  []string
+    Session *Session
+    Cookies []*http.Cookie
+    Bag     *Tree
 }
 
 func NewRequest(r *http.Request, p []string) *Request {
-    rq := &Request{
+    return &Request{
         Request: r,
         params:  p,
         Cookies: r.Cookies(),
-        Bag: NewTree(nil),
+        Bag:     NewTree(nil),
     }
-
-    return rq
 }
 
 func (r *Request) IsAjax() bool {
@@ -36,7 +34,6 @@ func (r *Request) Int(k string) (int, bool) {
             return int(i), true
         }
     }
-
     return 0, false
 }
 
@@ -46,7 +43,6 @@ func (r *Request) Int64(k string) (int64, bool) {
             return i, true
         }
     }
-
     return 0, false
 }
 
@@ -56,7 +52,6 @@ func (r *Request) Float(k string) (float64, bool) {
             return f, true
         }
     }
-
     return 0, false
 }
 
@@ -64,27 +59,21 @@ func (r *Request) String(k string) (string, bool) {
     if k[0] == '$' {
         n, e := strconv.ParseInt(k[1:], 10, 0)
         if e == nil && n > 0 && int(n) <= len(r.params) {
-            return r.params[n - 1], true
+            return r.params[n-1], true
         }
     }
-
     if v := r.FormValue(k); len(v) > 0 {
         return v, true
     }
-
     return "", false
 }
 
-/**
- * get cookie by name
- */
 func (r *Request) Cookie(name string) *http.Cookie {
     for _, c := range r.Cookies {
         if c.Name == name {
             return c
         }
     }
-
     return nil
 }
 
@@ -94,7 +83,6 @@ func (r *Request) WSReceive() string {
         L.Println(e)
         return ""
     }
-
     return txt
 }
 
@@ -103,7 +91,6 @@ func (r *Request) WSSend(txt string) bool {
         L.Println(e)
         return false
     }
-
     return true
 }
 
@@ -112,6 +99,5 @@ func (r *Request) WSSendJson(v interface{}) bool {
         L.Println(e)
         return false
     }
-
     return true
 }

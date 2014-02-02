@@ -8,7 +8,7 @@ import (
 )
 
 const (
-    CodeTerminate = 0
+    TerminateCode = 0
 )
 
 type Action func(r *Request, p *Response)
@@ -20,7 +20,7 @@ type route struct {
     action Action
 }
 
-var rootRoute = &route{"", make([]*route, 0), nil, nil}
+var rootRoute = &route{}
 
 func (r *route) parse(path string) (*route, []string) {
     current := r
@@ -43,12 +43,10 @@ func (r *route) parse(path string) (*route, []string) {
                 }
             }
         }
-
         if !found {
             return nil, nil
         }
     }
-
     return current, params
 }
 
@@ -65,19 +63,18 @@ func (r *route) set(path string, action Action) {
                 break
             }
         }
-
         if !found {
-            var r *regexp.Regexp
+            rt = &route{name: name}
             if strings.Contains(name, "(") {
-                r = regexp.MustCompile("^" + name + "$")
+                rt.regexp = regexp.MustCompile("^" + name + "$")
             }
-            rt = &route{name, make([]*route, 0), r, nil}
+            if current.routes == nil {
+                current.routes = make([]*route, 0)
+            }
             current.routes = append(current.routes, rt)
         }
-
         current = rt
     }
-
     current.action = action
 }
 
@@ -100,13 +97,12 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
             defer conn.Close()
         }
     }
-
-    response := &Response{w, "layout"}
+    response := NewResponse(w)
     InitSession(request, response)
 
     defer func() {
         if e := recover(); e != nil {
-            if code, ok := e.(int); ok && code == CodeTerminate {
+            if code, ok := e.(int); ok && code == TerminateCode {
                 return
             }
             request.Bag.Set("error", e, true)
@@ -114,15 +110,13 @@ func (rt *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         }
     }()
 
-    E.TriggerEvent("request_start", request, response)
-
+    E.TriggerEvent("request", request, response)
     if route == nil {
         NotfoundAction(request, response)
     } else {
         route.action(request, response)
     }
-
-    E.TriggerEvent("request_done", request, response)
+    E.TriggerEvent("response", request, response)
 }
 
 var NotfoundAction = func(r *Request, p *Response) {

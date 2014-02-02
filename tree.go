@@ -61,7 +61,7 @@ func (t *Tree) Set(path string, v interface{}, f bool) bool {
 
     //if the loop upove is ended by break
     //then create the rest nodes of the path
-    if i < last - 1 {
+    if i < last-1 {
         for _, n = range nodes[i:last] {
             d := make(map[interface{}]interface{}, 1)
             data[n] = d
@@ -87,7 +87,6 @@ func (t *Tree) Get(path string) interface{} {
     if data, ok := t.find(nodes[:n]); ok {
         return data[nodes[n]]
     }
-
     return nil
 }
 
@@ -98,7 +97,6 @@ func (t *Tree) Tree(path string) (*Tree, bool) {
     if data, ok := t.find(strings.Split(path, ".")); ok {
         return NewTree(data), true
     }
-
     return nil, false
 }
 
@@ -111,7 +109,6 @@ func (t *Tree) Int(path string) (int, bool) {
         i, ok := v.(int)
         return i, ok
     }
-
     return 0, false
 }
 
@@ -120,7 +117,6 @@ func (t *Tree) Int64(path string) (int64, bool) {
         i, ok := v.(int64)
         return i, ok
     }
-
     return 0, false
 }
 
@@ -129,7 +125,6 @@ func (t *Tree) Float64(path string) (float64, bool) {
         f, ok := v.(float64)
         return f, ok
     }
-
     return 0, false
 }
 
@@ -138,6 +133,5 @@ func (t *Tree) String(path string) (string, bool) {
         s, ok := v.(string)
         return s, ok
     }
-
     return "", false
 }

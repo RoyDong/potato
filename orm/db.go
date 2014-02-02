@@ -13,12 +13,12 @@ var (
 )
 
 type Config struct {
-    Type   string
-    Host   string
-    Port   int
-    User   string
-    Pass   string
-    DBname string
+    Type    string
+    Host    string
+    Port    int
+    User    string
+    Pass    string
+    DBname  string
     MaxConn int
 }
 

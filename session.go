@@ -14,8 +14,7 @@ var (
     SessionDomain     string
     SessionDuration   = int64(60 * 60 * 24)
     SessionCookieName = "POTATO_SESSION_ID"
-
-    sessions = make(map[string]*Session)
+    sessions          = make(map[string]*Session)
 )
 
 type Session struct {

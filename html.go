@@ -11,6 +11,7 @@ import (
 var (
     //2m
     MaxFileSize = int64(2 * 1024 * 1024)
+    TemplateExt = ".html"
 )
 
 type Template struct {
@@ -20,10 +21,14 @@ type Template struct {
 }
 
 func NewTemplate(dir string) *Template {
-    return &Template{
-        root: template.New("/"),
-        dir:  dir,
+    t := &Template{root: template.New("/"), dir: dir}
+    t.funcs = template.FuncMap{
+        "potato":  t.Potato,
+        "include": t.Include,
+        "defined": t.Defined,
+        "html":    t.Html,
     }
+    return t
 }
 
 func (t *Template) Template(name string) *template.Template {
@@ -72,24 +77,16 @@ func (t *Template) Potato() template.HTML {
     return template.HTML(fmt.Sprintf(`<a href="https://github.com/roydong/potato">Potato framework %s</a>`, Version))
 }
 
-func (t *Template) SetFuncs(funcs map[string]interface{}) {
-    t.funcs = template.FuncMap{
-        "potato":  t.Potato,
-        "include": t.Include,
-        "defined": t.Defined,
-        "html":    t.Html,
-    }
-
+func (t *Template) AddFuncs(funcs map[string]interface{}) {
     for k, f := range funcs {
         t.funcs[k] = f
     }
-
     t.root.Funcs(t.funcs)
     t.loadTemplateFiles(t.dir)
 }
 
 /**
- * loadTemplateFiles loads all *.html files under the dir recursively
+ * loadTemplateFiles loads all template files under the dir recursively
  */
 func (t *Template) loadTemplateFiles(dir string) {
     d, e := os.Open(dir)
@@ -110,7 +107,7 @@ func (t *Template) loadTemplateFiles(dir string) {
 
             //check file
         } else if info.Size() <= MaxFileSize &&
-            strings.HasSuffix(info.Name(), ".html") {
+            strings.HasSuffix(info.Name(), TemplateExt) {
 
             //load file
             if f, e := os.Open(uri); e == nil {
@@ -119,7 +116,7 @@ func (t *Template) loadTemplateFiles(dir string) {
 
                     //init template
                     key := strings.TrimPrefix(
-                        strings.TrimSuffix(uri, ".html"), t.dir)
+                        strings.TrimSuffix(uri, TemplateExt), t.dir)
                     template.Must(t.root.New(key).Parse(string(txt)))
                 }
 

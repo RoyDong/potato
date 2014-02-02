@@ -5,9 +5,15 @@ import (
     "net/http"
 )
 
+var DefaultLayout = "layout"
+
 type Response struct {
     http.ResponseWriter
     Layout string
+}
+
+func NewResponse(w http.ResponseWriter) {
+    return &Response{w, DefaultLayout}
 }
 
 func (r *Response) SetCookie(c *http.Cookie) {

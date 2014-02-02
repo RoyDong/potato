@@ -15,31 +15,27 @@ var (
     Port     = 37221
 
     Dir = &appDir{
-        Config:     "config/",
-        Controller: "controller/",
-        Model:      "model/",
-        Template:   "template/",
-        Log:        "log/",
+        Config:   "config/",
+        Template: "template/",
+        Log:      "log/",
     }
 
-    E = &Event{make(map[string][]EventHandler)}
+    E   = NewEvent()
+    T   = NewTemplate(Dir.Template)
     C   *Tree
     L   *log.Logger
-    T   *Template
 )
 
 type appDir struct {
-    Config     string
-    Controller string
-    Model      string
-    Template   string
-    Log        string
+    Config   string
+    Template string
+    Log      string
 }
-
 
 func Init() {
     E.TriggerEvent("frame_init_start")
-    //initialize config
+
+    //load config
     var data map[interface{}]interface{}
     if e := LoadYaml(&data, Dir.Config+"config.yml"); e != nil {
         log.Fatal(e)
@@ -65,6 +61,14 @@ func Init() {
         Port = v
     }
 
+    if v, ok := C.String("default_layout"); ok {
+        DefaultLayout = v
+    }
+
+    if v, ok := C.String("template_ext"); ok {
+        TemplateExt = v
+    }
+
     if dir, ok := C.String("log_dir"); ok {
         dir = strings.Trim(dir, "./")
         Dir.Log = dir + "/"
@@ -82,16 +86,14 @@ func Init() {
             log.Fatal("Error init log file:", e)
         }
     }
-
     L = log.New(logio, "", log.LstdFlags)
 
-    //template
-    T = NewTemplate(Dir.Template)
-
+    //init orm
     E.TriggerEvent("orm_init_start")
     initOrm()
     E.TriggerEvent("orm_init_done")
 
+    //start session check
     go sessionExpire()
 
     E.TriggerEvent("frame_init_done")
