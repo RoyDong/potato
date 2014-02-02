@@ -60,6 +60,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
             }
             request.Bag.Set("error", e, true)
             ErrorAction(request, response)
+            Logger.Println(e)
         }
     }()
 
