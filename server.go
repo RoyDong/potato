@@ -78,6 +78,10 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 var tpl *Template
 
+func TemplateFuncs(funcs map[string]interface{}) {
+    tpl.AddFuncs(funcs)
+}
+
 func Serve() {
     var e error
     var lsn net.Listener
