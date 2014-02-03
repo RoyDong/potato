@@ -15,8 +15,8 @@ const (
 
 var event = NewEvent()
 
-func AddEventHandler(name string, handler EventHandler) {
-    event.AddEventHandler(name, handler)
+func AddHandler(name string, handler EventHandler) {
+    event.AddHandler(name, handler)
 }
 
 var route = &Route{}
@@ -65,16 +65,16 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }()
 
     var rt *Route
-    event.TriggerEvent("request", request, response)
-    event.TriggerEvent("before_route", request, response)
+    event.Trigger("request", request, response)
+    event.Trigger("before_route", request, response)
     rt, request.params = route.Parse(r.URL.Path)
-    event.TriggerEvent("after_route", request, response)
+    event.Trigger("after_route", request, response)
     if rt == nil {
         NotfoundAction(request, response)
     } else {
         rt.action(request, response)
     }
-    event.TriggerEvent("response", request, response)
+    event.Trigger("response", request, response)
 }
 
 var tpl *Template

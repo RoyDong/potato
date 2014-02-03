@@ -21,7 +21,7 @@ var (
 )
 
 func Init() {
-    event.TriggerEvent("before_init")
+    event.Trigger("before_init")
     fp := flag.String("c", "config.yml", "config file")
     flag.Parse()
 
@@ -92,13 +92,12 @@ func Init() {
     }
     Logger = log.New(logio, "", log.LstdFlags)
     tpl = NewTemplate(TplDir)
-    event.TriggerEvent("before_orm_init")
     initOrm()
-    event.TriggerEvent("after_orm_init")
-    event.TriggerEvent("after_init")
+    event.Trigger("after_init")
 }
 
 func initOrm() {
+    event.Trigger("before_orm_init")
     if c, ok := Conf.Tree("sql"); ok {
         dbc := &orm.Config{
             Type:   "mysql",
@@ -133,4 +132,5 @@ func initOrm() {
 
         orm.Init(dbc, Logger)
     }
+    event.Trigger("after_orm_init")
 }

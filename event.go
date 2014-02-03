@@ -1,10 +1,10 @@
 package potato
 
 type IEvent interface {
-    AddEventHandler(name string, handler EventHandler)
-    TriggerEvent(name string, args ...interface{})
-    ClearEventHandlers(name string)
-    ClearAllEventHandlers()
+    AddHandler(name string, handler EventHandler)
+    Trigger(name string, args ...interface{})
+    ClearHandlers(name string)
+    ClearAllHandlers()
 }
 
 type EventHandler func(args ...interface{})
@@ -17,7 +17,7 @@ func NewEvent() *Event {
     return &Event{make(map[string][]EventHandler)}
 }
 
-func (e *Event) AddEventHandler(name string, handler EventHandler) {
+func (e *Event) AddHandler(name string, handler EventHandler) {
     handlers, has := e.events[name]
     if !has {
         handlers = make([]EventHandler, 0, 1)
@@ -25,15 +25,15 @@ func (e *Event) AddEventHandler(name string, handler EventHandler) {
     e.events[name] = append(handlers, handler)
 }
 
-func (e *Event) ClearEventHandlers(name string) {
+func (e *Event) ClearHandlers(name string) {
     delete(e.events, name)
 }
 
-func (e *Event) ClearAllEventHandlers() {
+func (e *Event) ClearAllHandlers() {
     e.events = make(map[string][]EventHandler)
 }
 
-func (e *Event) TriggerEvent(name string, args ...interface{}) {
+func (e *Event) Trigger(name string, args ...interface{}) {
     if handlers, has := e.events[name]; has && len(handlers) > 0 {
         for _, handler := range handlers {
             handler(args...)
