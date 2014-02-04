@@ -9,7 +9,7 @@ import (
 var (
     DB     *sql.DB
     Logger *log.Logger
-    Conf *Config
+    Conf   *Config
 )
 
 type Config struct {

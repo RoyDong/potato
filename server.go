@@ -2,17 +2,17 @@ package potato
 
 import (
     ws "code.google.com/p/go.net/websocket"
-    "strings"
     "fmt"
     "net"
     "net/http"
-    "syscall"
-    "runtime"
     "os"
+    "runtime"
+    "strings"
+    "syscall"
 )
 
 /**
- * events: 
+ * events:
  *  before_init
  *  after_init
  *
@@ -22,7 +22,6 @@ import (
  *  request, request started, just before routing
  *
  *  before_action, after routing, just before running action
- *  after_action, after running action
  *
  *  response, just before response
  */
@@ -47,12 +46,14 @@ var NotfoundAction = func(r *Request, p *Response) error {
 }
 
 var ErrorAction = func(r *Request, p *Response) error {
-    msg, has := r.Bag.String("error")
-    if !has {
-        msg = "unknown"
+    msg := "unknown"
+    e, ok := r.Bag.Get("error").(error)
+    if ok {
+        msg = e.Error()
     }
     p.WriteHeader(500)
     p.Write([]byte("error: " + msg))
+    Logger.Println(e)
     return nil
 }
 
@@ -86,28 +87,22 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     event.Trigger("response", request, response)
 }
 
-var tpl *Template
-
-func TemplateFuncs(funcs map[string]interface{}) {
-    tpl.AddFuncs(funcs)
-}
-
-func initListener() net.Listener {
+func listener() net.Listener {
     var e error
-    var lis net.Listener
+    var lsr net.Listener
     if len(SockFile) > 0 {
         os.Remove(SockFile)
-        lis, e = net.Listen("unix", SockFile)
+        lsr, e = net.Listen("unix", SockFile)
         if e == nil {
             os.Chmod(SockFile, os.ModePerm)
-            return lis
+            return lsr
         }
     }
-    lis, e = net.Listen("tcp", fmt.Sprintf(":%d", Port))
+    lsr, e = net.Listen("tcp", fmt.Sprintf(":%d", Port))
     if e != nil {
         Logger.Fatal(e)
     }
-    return lis
+    return lsr
 }
 
 func fork() {
@@ -118,25 +113,25 @@ func fork() {
 
     ret, ret2, err := syscall.RawSyscall(syscall.SYS_FORK, 0, 0, 0)
     if err != 0 || ret2 < 0 {
-        Logger.Fatal("error forking process")
+        Logger.Fatal("orm: error forking process")
     }
     if darwin && ret2 == 1 {
         ret = 0
     }
     if ret > 0 {
-        println("work work")
         os.Exit(0)
     }
 
     syscall.Umask(0)
     sret, errno := syscall.Setsid()
     if errno != nil {
-        Logger.Printf("Error: syscall.Setsid errno: %d", errno)
+        Logger.Printf("orm: syscall.Setsid errno: %d", errno)
     }
     if sret < 0 {
-        Logger.Fatal("error forking process")
+        Logger.Fatal("orm: error setting sid")
     }
 
+    println("work work")
     f, e := os.OpenFile("/dev/null", os.O_RDWR, 0)
     if e == nil {
         fd := int(f.Fd())
@@ -147,15 +142,16 @@ func fork() {
 }
 
 func Serve() {
+    tpl = NewTemplate(TplDir)
     tpl.loadTemplateFiles(tpl.dir)
-    go sessionExpire()
     srv := &http.Server{Handler: &handler{ws.Server{}}}
-    lis := initListener()
-    defer lis.Close()
+    lsr := listener()
+    defer lsr.Close()
+    go sessionExpire()
     if Daemon {
         fork()
     } else {
         println("work work")
     }
-    Logger.Println(srv.Serve(lis))
+    Logger.Println(srv.Serve(lsr))
 }

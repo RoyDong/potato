@@ -2,9 +2,9 @@ package potato
 
 import (
     "github.com/roydong/potato/orm"
-    "strings"
     "log"
     "os"
+    "strings"
 )
 
 var (
@@ -30,7 +30,9 @@ func Init() {
             Daemon = true
         } else if arg == "-c" && i+1 < len(os.Args) {
             confile = os.Args[i+1]
-            Pwd = confile[:strings.LastIndex(confile, "/")]
+            if i := strings.LastIndex(confile, "/"); i >= 0 {
+                Pwd = confile[:i+1]
+            }
         }
     }
 
@@ -108,7 +110,6 @@ func Init() {
         logio = os.Stdout
     }
     Logger = log.New(logio, "", log.LstdFlags)
-    tpl = NewTemplate(TplDir)
     initOrm()
     event.Trigger("after_init")
 }

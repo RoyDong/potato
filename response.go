@@ -7,6 +7,12 @@ import (
 
 var DefaultLayout = "layout"
 
+var tpl *Template
+
+func TemplateFuncs(funcs map[string]interface{}) {
+    tpl.AddFuncs(funcs)
+}
+
 type Response struct {
     http.ResponseWriter
     Layout string

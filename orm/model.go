@@ -8,8 +8,8 @@ import (
 )
 
 var (
-    tables = make(map[string]string)
-    models = make(map[string]*Model)
+    tables        = make(map[string]string)
+    models        = make(map[string]*Model)
     ColumnTagName = "column"
 )
 

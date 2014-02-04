@@ -201,6 +201,12 @@ func (s *Stmt) Asc(col string) *Stmt {
     return s
 }
 
+func (s *Stmt) OrderBy(order string) *Stmt {
+    s.orders = append(s.orders, order)
+
+    return s
+}
+
 func (s *Stmt) table() string {
     table, ok := tables[s.from[0]]
     if !ok {
