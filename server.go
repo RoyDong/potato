@@ -6,6 +6,8 @@ import (
     "fmt"
     "net"
     "net/http"
+    "syscall"
+    "runtime"
     "os"
 )
 
@@ -38,21 +40,21 @@ func SetAction(action Action, patterns ...string) {
     }
 }
 
-var NotfoundAction = func(r *Request, p *Response) {
+var NotfoundAction = func(r *Request, p *Response) error {
     p.WriteHeader(404)
     p.Write([]byte("page not found"))
+    return nil
 }
 
-var ErrorAction = func(r *Request, p *Response) {
+var ErrorAction = func(r *Request, p *Response) error {
     msg, has := r.Bag.String("error")
     if !has {
         msg = "unknown"
     }
     p.WriteHeader(500)
     p.Write([]byte("error: " + msg))
+    return nil
 }
-
-type Terminate string
 
 type handler struct {
     ws.Server
@@ -68,29 +70,20 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }
     response := NewResponse(w)
     InitSession(request, response)
-
-    defer func() {
-        event.Trigger("after_action", request, response)
-        if e := recover(); e != nil {
-            if _, ok := e.(Terminate); ok {
-                return
-            }
-            request.Bag.Set("error", e, true)
-            ErrorAction(request, response)
-            Logger.Println(e)
-        }
-        event.Trigger("response", request, response)
-    }()
+    event.Trigger("request", request, response)
 
     var rt *Route
-    event.Trigger("request", request, response)
     rt, request.params = route.Parse(r.URL.Path)
     event.Trigger("before_action", request, response)
     if rt == nil {
         NotfoundAction(request, response)
     } else {
-        rt.action(request, response)
+        if e := rt.action(request, response); e != nil {
+            request.Bag.Set("error", e, true)
+            ErrorAction(request, response)
+        }
     }
+    event.Trigger("response", request, response)
 }
 
 var tpl *Template
@@ -99,28 +92,70 @@ func TemplateFuncs(funcs map[string]interface{}) {
     tpl.AddFuncs(funcs)
 }
 
-func Serve() {
+func initListener() net.Listener {
     var e error
-    var lsn net.Listener
+    var lis net.Listener
     if len(SockFile) > 0 {
         os.Remove(SockFile)
-        lsn, e = net.Listen("unix", SockFile)
-        if e != nil {
-            Logger.Println("fail to open socket file", e)
-        } else {
+        lis, e = net.Listen("unix", SockFile)
+        if e == nil {
             os.Chmod(SockFile, os.ModePerm)
+            return lis
         }
     }
-    if lsn == nil {
-        lsn, e = net.Listen("tcp", fmt.Sprintf(":%d", Port))
-    }
+    lis, e = net.Listen("tcp", fmt.Sprintf(":%d", Port))
     if e != nil {
         Logger.Fatal(e)
     }
-    defer lsn.Close()
+    return lis
+}
+
+func fork() {
+    darwin := runtime.GOOS == "darwin"
+    if syscall.Getppid() == 1 {
+        return
+    }
+
+    ret, ret2, err := syscall.RawSyscall(syscall.SYS_FORK, 0, 0, 0)
+    if err != 0 || ret2 < 0 {
+        Logger.Fatal("error forking process")
+    }
+    if darwin && ret2 == 1 {
+        ret = 0
+    }
+    if ret > 0 {
+        println("work work")
+        os.Exit(0)
+    }
+
+    syscall.Umask(0)
+    sret, errno := syscall.Setsid()
+    if errno != nil {
+        Logger.Printf("Error: syscall.Setsid errno: %d", errno)
+    }
+    if sret < 0 {
+        Logger.Fatal("error forking process")
+    }
+
+    f, e := os.OpenFile("/dev/null", os.O_RDWR, 0)
+    if e == nil {
+        fd := int(f.Fd())
+        syscall.Dup2(fd, int(os.Stdin.Fd()))
+        syscall.Dup2(fd, int(os.Stdout.Fd()))
+        syscall.Dup2(fd, int(os.Stderr.Fd()))
+    }
+}
+
+func Serve() {
     tpl.loadTemplateFiles(tpl.dir)
     go sessionExpire()
-    Logger.Println("work work")
-    server := &http.Server{Handler: &handler{ws.Server{}}}
-    Logger.Println(server.Serve(lsn))
+    srv := &http.Server{Handler: &handler{ws.Server{}}}
+    lis := initListener()
+    defer lis.Close()
+    if Daemon {
+        fork()
+    } else {
+        println("work work")
+    }
+    Logger.Println(srv.Serve(lis))
 }

@@ -22,12 +22,10 @@ func (r *Response) SetCookie(c *http.Cookie) {
 
 func (r *Response) Redirect(request *Request, url string, code int) {
     http.Redirect(r, request.Request, url, code)
-    panic(Terminate("redirect"))
 }
 
 func (r *Response) RenderText(t string) {
     r.Write([]byte(t))
-    panic(Terminate("render"))
 }
 
 func (r *Response) Render(name string, data interface{}) {
@@ -39,7 +37,6 @@ func (r *Response) Render(name string, data interface{}) {
     } else {
         panic(r.Layout + " template not found")
     }
-    panic(Terminate("render"))
 }
 
 func (r *Response) RenderPartial(name string, data interface{}) {
@@ -48,7 +45,6 @@ func (r *Response) RenderPartial(name string, data interface{}) {
     } else {
         panic(name + " template not found")
     }
-    panic(Terminate("render"))
 }
 
 func (r *Response) RenderJson(v interface{}) {

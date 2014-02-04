@@ -2,7 +2,7 @@ package potato
 
 import (
     "github.com/roydong/potato/orm"
-    "flag"
+    "strings"
     "log"
     "os"
 )
@@ -11,6 +11,8 @@ var (
     AppName  string
     Version  string
     SockFile string
+    Pwd      string
+    Daemon   bool
     Conf     *Tree
     Logger   *log.Logger
     ConfDir  = "config/"
@@ -22,12 +24,19 @@ var (
 
 func Init() {
     event.Trigger("before_init")
-    fp := flag.String("c", "config.yml", "config file")
-    flag.Parse()
+    confile := "config.yml"
+    for i, arg := range os.Args {
+        if arg == "-d" {
+            Daemon = true
+        } else if arg == "-c" && i+1 < len(os.Args) {
+            confile = os.Args[i+1]
+            Pwd = confile[:strings.LastIndex(confile, "/")]
+        }
+    }
 
     //load config
     var data map[interface{}]interface{}
-    if e := LoadYaml(&data, *fp); e != nil {
+    if e := LoadYaml(&data, confile); e != nil {
         log.Fatal(e)
     }
     Conf = NewTree(data)
@@ -78,17 +87,25 @@ func Init() {
         ConfDir = dir
     }
 
+    if v, ok := Conf.String("pwd"); ok {
+        Pwd = v
+    }
+
+    if Pwd != "" {
+        os.Chdir(Pwd)
+    }
+
     //logger
     var logio *os.File
-    if Env == "dev" {
-        logio = os.Stdout
-    } else {
+    if Daemon {
         var e error
         logio, e = os.OpenFile(LogDir+Env+".log",
             os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
         if e != nil {
             log.Fatal("Error init log file:", e)
         }
+    } else {
+        logio = os.Stdout
     }
     Logger = log.New(logio, "", log.LstdFlags)
     tpl = NewTemplate(TplDir)
