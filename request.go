@@ -78,7 +78,7 @@ func (r *Request) Cookie(name string) *http.Cookie {
 
 func (r *Request) WSReceive() string {
     if r.WSConn == nil {
-        panic("normal request on websocket")
+        panic("potato: normal request no websocket")
     }
     var txt string
     if e := ws.Message.Receive(r.WSConn, &txt); e != nil {

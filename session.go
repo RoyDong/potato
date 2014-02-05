@@ -19,22 +19,22 @@ var (
 
 type Session struct {
     Tree
-    Id        string
+    id        string
     UpdatedAt time.Time
 }
 
 func NewSession(r *Request, p *Response) *Session {
     s := &Session{
         Tree:      *NewTree(nil),
-        Id:        sessionId(r),
+        id:        sessionId(r),
         UpdatedAt: time.Now(),
     }
 
     //set id in cookie
-    sessions[s.Id] = s
+    sessions[s.id] = s
     p.SetCookie(&http.Cookie{
         Name:     SessionCookieName,
-        Value:    s.Id,
+        Value:    s.id,
         Path:     "/",
         Domain:   SessionDomain,
         HttpOnly: true})
@@ -48,33 +48,31 @@ func NewSession(r *Request, p *Response) *Session {
  */
 func InitSession(r *Request, p *Response) {
     if c := r.Cookie(SessionCookieName); c != nil {
-        r.Session = sessions[c.Value]
+        var has bool
+        if r.Session, has = sessions[c.Value]; has {
+            sec := time.Now().Unix()
+            if has && r.Session.UpdatedAt.Unix()+SessionDuration < sec {
+                delete(sessions, r.Session.id)
+                r.Session.Clear()
+                r.Session = nil
+            }
+        }
     }
-
     if r.Session == nil {
         r.Session = NewSession(r, p)
-    } else {
-        t := time.Now()
-
-        //check session expiration
-        if r.Session.UpdatedAt.Unix()+SessionDuration < t.Unix() {
-            r.Session.Clear()
-        }
-
-        r.Session.UpdatedAt = t
     }
 }
 
 func sessionId(r *Request) string {
     rnd := make([]byte, 24)
     if _, e := io.ReadFull(rand.Reader, rnd); e != nil {
-        panic("could not get random chars while creating session id")
+        panic("potato: session id " + e.Error())
     }
 
     sig := fmt.Sprintf("%s%d%s", r.RemoteAddr, time.Now().UnixNano(), rnd)
     hash := md5.New()
     if _, e := hash.Write([]byte(sig)); e != nil {
-        panic("could not hash string while creating session id")
+        panic("potato: session id " + e.Error())
     }
 
     return hex.EncodeToString(hash.Sum(nil))

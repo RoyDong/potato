@@ -37,7 +37,7 @@ func NewDB() *sql.DB {
         Conf.Port, Conf.DBname)
 
     if db, e = sql.Open(Conf.Type, dsn); e != nil {
-        log.Fatal(e)
+        log.Fatal("orm:", e)
     }
 
     if Conf.MaxConn > 0 {
@@ -45,7 +45,7 @@ func NewDB() *sql.DB {
     }
 
     if e = db.Ping(); e != nil {
-        log.Fatal(e)
+        log.Fatal("orm:", e)
     }
 
     return db

@@ -39,7 +39,7 @@ func Init() {
     //load config
     var data map[interface{}]interface{}
     if e := LoadYaml(&data, confile); e != nil {
-        log.Fatal(e)
+        log.Fatal("potato: config file", e)
     }
     Conf = NewTree(data)
 
@@ -104,7 +104,7 @@ func Init() {
         logio, e = os.OpenFile(LogDir+Env+".log",
             os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
         if e != nil {
-            log.Fatal("Error init log file:", e)
+            log.Fatal("potato: log file", e)
         }
     } else {
         logio = os.Stdout

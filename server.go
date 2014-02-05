@@ -100,7 +100,7 @@ func listener() net.Listener {
     }
     lsr, e = net.Listen("tcp", fmt.Sprintf(":%d", Port))
     if e != nil {
-        Logger.Fatal(e)
+        Logger.Fatal("potato:", e)
     }
     return lsr
 }
@@ -113,7 +113,7 @@ func fork() {
 
     ret, ret2, err := syscall.RawSyscall(syscall.SYS_FORK, 0, 0, 0)
     if err != 0 || ret2 < 0 {
-        Logger.Fatal("orm: error forking process")
+        Logger.Fatal("potato: error forking process")
     }
     if darwin && ret2 == 1 {
         ret = 0
@@ -125,10 +125,10 @@ func fork() {
     syscall.Umask(0)
     sret, errno := syscall.Setsid()
     if errno != nil {
-        Logger.Printf("orm: syscall.Setsid errno: %d", errno)
+        Logger.Printf("potato: syscall.Setsid errno: %d", errno)
     }
     if sret < 0 {
-        Logger.Fatal("orm: error setting sid")
+        Logger.Fatal("potato: error setting sid")
     }
 
     println("work work")
@@ -142,8 +142,7 @@ func fork() {
 }
 
 func Serve() {
-    tpl = NewTemplate(TplDir)
-    tpl.loadTemplateFiles(tpl.dir)
+    tpl.Load(TplDir)
     srv := &http.Server{Handler: &handler{ws.Server{}}}
     lsr := listener()
     defer lsr.Close()

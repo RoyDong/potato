@@ -20,8 +20,8 @@ type Template struct {
     funcs template.FuncMap
 }
 
-func NewTemplate(dir string) *Template {
-    t := &Template{root: template.New("/"), dir: dir}
+func NewTemplate() *Template {
+    t := &Template{}
     t.funcs = template.FuncMap{
         "potato":  t.Potato,
         "include": t.Include,
@@ -62,7 +62,7 @@ func (t *Template) Include(args ...interface{}) template.HTML {
         return template.HTML(buffer.Bytes())
     }
 
-    panic(name + " template not found")
+    panic("potato: " + name + " template not found")
 }
 
 func (t *Template) Defined(name string) bool {
@@ -82,6 +82,12 @@ func (t *Template) AddFuncs(funcs map[string]interface{}) {
         t.funcs[k] = f
     }
     t.root.Funcs(t.funcs)
+}
+
+func (t *Template) Load(dir string) {
+    t.root = template.New("/")
+    t.dir = dir
+    t.loadTemplateFiles(dir)
 }
 
 /**
