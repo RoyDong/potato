@@ -18,14 +18,14 @@ var (
 )
 
 type Session struct {
-    Tree
+    *Tree
     id        string
     UpdatedAt time.Time
 }
 
 func NewSession(r *Request, p *Response) *Session {
     s := &Session{
-        Tree:      *NewTree(nil),
+        Tree:      NewTree(),
         id:        sessionId(r),
         UpdatedAt: time.Now(),
     }

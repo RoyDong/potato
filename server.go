@@ -80,7 +80,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         NotfoundAction(request, response)
     } else {
         if e := rt.action(request, response); e != nil {
-            request.Bag.Set("error", e, true)
+            request.Bag.Set("error", e)
             ErrorAction(request, response)
         }
     }

@@ -6,130 +6,150 @@ import (
 )
 
 type Tree struct {
-    data   map[interface{}]interface{}
+    name string
+    branches []*Tree
+    value interface{}
     locker *sync.Mutex
 }
 
-func NewTree(data map[interface{}]interface{}) *Tree {
-    if data == nil {
-        data = make(map[interface{}]interface{})
-    }
-    return &Tree{data, &sync.Mutex{}}
+func NewTree() *Tree {
+    return &Tree{locker: &sync.Mutex{}}
 }
 
-/**
- * find finds target data on the tree by provided nodes
- */
-func (t *Tree) find(nodes []string) (map[interface{}]interface{}, bool) {
-    var ok bool
-    data := t.data
-    for _, n := range nodes {
-        if data, ok = data[n].(map[interface{}]interface{}); !ok {
-            return nil, false
-        }
+func (t *Tree) LoadYaml(f string) error {
+    var data map[interface{}]interface{}
+    if e := LoadYaml(&data, f); e != nil {
+        return e
     }
-    return data, true
-}
-
-/**
- * Set adds new value on the tree
- * f means force to replace old value if there is any
- */
-func (t *Tree) Set(path string, v interface{}, f bool) bool {
-    t.locker.Lock()
-    defer t.locker.Unlock()
-
-    var i int
-    var n string
-    nodes := strings.Split(path, ".")
-    last := len(nodes) - 1
-    data := t.data
-
-    //get to the last existing node on the tree of the path
-    for i, n = range nodes[:last] {
-        if d, ok := data[n].(map[interface{}]interface{}); ok {
-            data = d
-        } else {
-            break
-        }
-    }
-
-    //the next node is a value and f is false
-    if _, has := data[n]; has && !f {
-        return false
-    }
-
-    //if the loop upove is ended by break
-    //then create the rest nodes of the path
-    if i < last-1 {
-        for _, n = range nodes[i:last] {
-            d := make(map[interface{}]interface{}, 1)
-            data[n] = d
-            data = d
-        }
-    }
-
-    if t, ok := v.(*Tree); ok {
-        v = t.data
-    }
-
-    data[nodes[last]] = v
-    return true
-}
-
-/**
- * Value returns the data found by path
- * path is a string with node names divided by dot(.)
- */
-func (t *Tree) Get(path string) interface{} {
-    nodes := strings.Split(path, ".")
-    n := len(nodes) - 1
-    if data, ok := t.find(nodes[:n]); ok {
-        return data[nodes[n]]
-    }
+    t.load(t, data)
     return nil
 }
 
-/**
- * Sub returns a *Tree object stores the data found by path
- */
-func (t *Tree) Tree(path string) (*Tree, bool) {
-    if data, ok := t.find(strings.Split(path, ".")); ok {
-        return NewTree(data), true
+func (t *Tree) load(p *Tree, data map[interface{}]interface{}) {
+    if p.branches == nil {
+        p.branches = make([]*Tree, 0)
     }
-    return nil, false
+    for k, v := range data {
+        tree := &Tree{name: k.(string)}
+        p.branches = append(p.branches, tree)
+        if d, ok := v.(map[interface{}]interface{}); ok {
+            t.load(tree, d)
+        } else {
+            tree.value = v
+        }
+    }
+}
+
+func (t *Tree) find(key string) *Tree {
+    current := t
+    nodes := strings.Split(
+        strings.ToLower(strings.Trim(key, ".")), ".")
+    for _, name := range nodes {
+        found := false
+        for _, tree := range current.branches {
+            if name == tree.name {
+                found = true
+                current = tree
+                break
+            }
+        }
+        if !found {
+            return nil
+        }
+    }
+    return current
+}
+
+func (t *Tree) Get(key string) interface{} {
+    tree := t.find(key)
+    if tree == nil {
+        return nil
+    }
+    return tree.value
+}
+
+func (t *Tree) prepare(key string) *Tree {
+    current := t
+    nodes := strings.Split(
+        strings.ToLower(strings.Trim(key, ".")), ".")
+    for _, name := range nodes {
+        var found bool
+        var tree *Tree
+        for _, tree = range current.branches {
+            if name == tree.name {
+                found = true
+                current = tree
+                break
+            }
+        }
+        if !found {
+            tree = &Tree{name: name}
+            if current.branches == nil {
+                current.branches = make([]*Tree, 0)
+            }
+            current.branches = append(current.branches, tree)
+        }
+        current = tree
+    }
+    return current
+}
+
+func (t *Tree) Set(key string, val interface{}) {
+    t.locker.Lock()
+    defer t.locker.Unlock()
+    tree := t.prepare(key)
+    tree.value = val
+}
+
+func (t *Tree) Add(key string, val interface{}) bool {
+    t.locker.Lock()
+    defer t.locker.Unlock()
+    if tree := t.prepare(key); tree.value == nil {
+        tree.value = val
+        return true
+    }
+    return false
+}
+
+func (t *Tree) Tree(key string) *Tree {
+    tree := t.find(key)
+    if tree == nil {
+        return nil
+    }
+    tree.locker = t.locker
+    return tree
 }
 
 func (t *Tree) Clear() {
-    t.data = make(map[interface{}]interface{})
+    t.branches = nil
 }
 
-func (t *Tree) Int(path string) (int, bool) {
-    if v := t.Get(path); v != nil {
+func (t *Tree) Int(key string) (int, bool) {
+    if v := t.Get(key); v != nil {
         i, ok := v.(int)
         return i, ok
     }
     return 0, false
 }
 
-func (t *Tree) Int64(path string) (int64, bool) {
-    if v := t.Get(path); v != nil {
+func (t *Tree) Int64(key string) (int64, bool) {
+    if v := t.Get(key); v != nil {
         i, ok := v.(int64)
         return i, ok
     }
     return 0, false
 }
 
-func (t *Tree) Float64(path string) (float64, bool) {
-    if v := t.Get(path); v != nil {
+func (t *Tree) Float64(key string) (float64, bool) {
+    if v := t.Get(key); v != nil {
         f, ok := v.(float64)
         return f, ok
     }
     return 0, false
 }
 
-func (t *Tree) String(path string) (string, bool) {
-    if v := t.Get(path); v != nil {
+func (t *Tree) String(key string) (string, bool) {
+    if v := t.Get(key); v != nil {
         s, ok := v.(string)
         return s, ok
     }

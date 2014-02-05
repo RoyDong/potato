@@ -37,11 +37,10 @@ func Init() {
     }
 
     //load config
-    var data map[interface{}]interface{}
-    if e := LoadYaml(&data, confile); e != nil {
+    Conf = NewTree()
+    if e := Conf.LoadYaml(confile); e != nil {
         log.Fatal("potato: config file", e)
     }
-    Conf = NewTree(data)
 
     if name, ok := Conf.String("name"); ok {
         AppName = name
@@ -116,7 +115,7 @@ func Init() {
 
 func initOrm() {
     event.Trigger("before_orm_init")
-    if c, ok := Conf.Tree("sql"); ok {
+    if c := Conf.Tree("sql"); c != nil {
         dbc := &orm.Config{
             Type:   "mysql",
             Host:   "localhost",

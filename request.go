@@ -19,7 +19,7 @@ func NewRequest(r *http.Request) *Request {
     return &Request{
         Request: r,
         Cookies: r.Cookies(),
-        Bag:     NewTree(nil),
+        Bag:     NewTree(),
     }
 }
 
