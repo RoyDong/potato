@@ -2,6 +2,7 @@ package potato
 
 import (
     "strings"
+    "fmt"
     "sync"
 )
 
@@ -16,31 +17,79 @@ func NewTree() *Tree {
     return &Tree{locker: &sync.Mutex{}}
 }
 
-func (t *Tree) LoadYaml(f string) error {
-    var data map[interface{}]interface{}
-    if e := LoadYaml(&data, f); e != nil {
+/**
+ * LoadYaml loads data written in yaml file
+ * repl means whether to replace or keep the old value
+ */
+func (t *Tree) LoadYaml(file string, repl bool) error {
+    var yml interface{}
+    if e := LoadYaml(&yml, file); e != nil {
         return e
     }
-    t.load(t, data)
+    load2Tree(t, yml, repl)
     return nil
 }
 
-func (t *Tree) load(p *Tree, data map[interface{}]interface{}) {
-    if p.branches == nil {
-        p.branches = make([]*Tree, 0)
+/**
+ * LoadJson loads data written in yaml file
+ * repl means whether to replace or keep the old value
+ */
+func (t *Tree) LoadJson(file string, repl bool) error {
+    var json interface{}
+    if e := LoadJson(&json, file); e != nil {
+        return e
     }
-    for k, v := range data {
-        tree := &Tree{name: k.(string)}
-        p.branches = append(p.branches, tree)
-        if d, ok := v.(map[interface{}]interface{}); ok {
-            t.load(tree, d)
-        } else {
-            tree.value = v
-        }
+    load2Tree(t, json, repl)
+    return nil
+}
+
+func load2Tree(t *Tree, d interface{}, repl bool) {
+    if v, ok := d.(map[interface{}]interface{}); ok {
+        map2Tree(t, v, repl)
+    } else if v, ok := d.([]interface{}); ok {
+        arr2Tree(t, v, repl)
+    } else if repl || t.value == nil {
+        t.value = d
     }
 }
 
+func map2Tree(t *Tree, d map[interface{}]interface{}, repl bool) {
+    if t.branches == nil {
+        t.branches = make([]*Tree, 0)
+    }
+    for k, v := range d {
+        value2Tree(t, k.(string), v, repl)
+    }
+}
+
+func arr2Tree(t *Tree, d []interface{}, repl bool) {
+    if t.branches == nil {
+        t.branches = make([]*Tree, 0)
+    }
+    for i, v := range d {
+        value2Tree(t, fmt.Sprintf("%d", i) , v, repl)
+    }
+}
+
+func value2Tree(t *Tree, k string, v interface{}, repl bool) {
+    var tree *Tree
+    for _, b := range t.branches {
+        if b.name == k {
+            tree = b
+            break
+        }
+    }
+    if tree == nil {
+        tree = &Tree{name: k}
+    }
+    t.branches = append(t.branches, tree)
+    load2Tree(tree, v, repl)
+}
+
 func (t *Tree) find(key string) *Tree {
+    if key == "" {
+        return t
+    }
     current := t
     nodes := strings.Split(
         strings.ToLower(strings.Trim(key, ".")), ".")

@@ -38,7 +38,7 @@ func Init() {
 
     //load config
     Conf = NewTree()
-    if e := Conf.LoadYaml(confile); e != nil {
+    if e := Conf.LoadYaml(confile, false); e != nil {
         log.Fatal("potato: config file", e)
     }
 

@@ -1,12 +1,5 @@
 package potato
 
-type IEvent interface {
-    AddHandler(name string, handler EventHandler)
-    Trigger(name string, args ...interface{})
-    ClearHandlers(name string)
-    ClearAllHandlers()
-}
-
 type EventHandler func(args ...interface{})
 
 type Event struct {
