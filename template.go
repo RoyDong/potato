@@ -23,7 +23,6 @@ type Template struct {
 func NewTemplate() *Template {
     t := &Template{}
     t.funcs = template.FuncMap{
-        "potato":  t.Potato,
         "include": t.Include,
         "defined": t.Defined,
         "html":    t.Html,
@@ -71,10 +70,6 @@ func (t *Template) Defined(name string) bool {
 
 func (t *Template) Html(str string) template.HTML {
     return template.HTML(str)
-}
-
-func (t *Template) Potato() template.HTML {
-    return template.HTML(fmt.Sprintf(`<a href="https://github.com/roydong/potato">Potato framework %s</a>`, Version))
 }
 
 func (t *Template) AddFuncs(funcs map[string]interface{}) {
