@@ -44,27 +44,27 @@ func (t *Tree) LoadJson(file string, repl bool) error {
 }
 func (t *Tree) loadValue(val interface{}, repl bool) {
     if v, ok := val.(map[interface{}]interface{}); ok {
-        t.loadBranch(v, nil, repl)
+        t.loadBranches(v, nil, repl)
     } else if v, ok := val.([]interface{}); ok {
-        t.loadBranch(nil, v, repl)
+        t.loadBranches(nil, v, repl)
     } else if repl || t.value == nil {
         t.value = val
     }
 }
 
-func (t *Tree) loadBranch(m map[interface{}]interface{}, arr []interface{}, repl bool) {
+func (t *Tree) loadBranches(m map[interface{}]interface{}, arr []interface{}, repl bool) {
     if t.branches == nil {
         t.branches = make(map[string]*Tree)
     }
     for k, v := range m {
-        t.newBranchTree(fmt.Sprintf("%v", k), v, repl)
+        t.loadBranch(fmt.Sprintf("%v", k), v, repl)
     }
     for k, v := range arr {
-        t.newBranchTree(fmt.Sprintf("%d", k), v, repl)
+        t.loadBranch(fmt.Sprintf("%d", k), v, repl)
     }
 }
 
-func (t *Tree) newBranchTree(key string, val interface{}, repl bool) {
+func (t *Tree) loadBranch(key string, val interface{}, repl bool) {
     tree, has := t.branches[key]
     if !has {
         tree = &Tree{name: key}
