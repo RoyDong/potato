@@ -12,47 +12,47 @@ import (
 
 var (
     SessionDomain     string
-    SessionDuration   = int64(60 * 60 * 24)
+    SessionDuration   = 30
     SessionCookieName = "POTATO_SESSION_ID"
-    sessions          = make(map[string]*Session)
 )
 
 type Session struct {
     *Tree
-    id        string
+    Id        string
     UpdatedAt time.Time
 }
+
+var sessions = make(map[string]*Session)
 
 func NewSession(r *Request, p *Response) *Session {
     s := &Session{
         Tree:      NewTree(),
-        id:        sessionId(r),
+        Id:        sessionId(r),
         UpdatedAt: time.Now(),
     }
-
-    //set id in cookie
-    sessions[s.id] = s
+    //set cookie
+    sessions[s.Id] = s
     p.SetCookie(&http.Cookie{
         Name:     SessionCookieName,
-        Value:    s.id,
+        Value:    s.Id,
         Path:     "/",
         Domain:   SessionDomain,
-        HttpOnly: true})
-
+        HttpOnly: true,
+    })
     return s
 }
 
-/**
- * InitSession gets current session by session id in cookie
- * if none creates a new session
- */
+/*
+InitSession find session by session id set to request
+if none found then create a new session
+*/
 func InitSession(r *Request, p *Response) {
     if c := r.Cookie(SessionCookieName); c != nil {
         var has bool
         if r.Session, has = sessions[c.Value]; has {
             sec := time.Now().Unix()
-            if has && r.Session.UpdatedAt.Unix()+SessionDuration < sec {
-                delete(sessions, r.Session.id)
+            if has && r.Session.UpdatedAt.Unix() + int64(SessionDuration) < sec {
+                delete(sessions, r.Session.Id)
                 r.Session.Clear()
                 r.Session = nil
             }
@@ -79,14 +79,14 @@ func sessionId(r *Request) string {
 }
 
 /**
- * sessionExpire checks sessons expiration per minute
- * and delete all expired sessions
- */
+sessionExpire checks sessons expiration per minute
+and delete all expired sessions
+*/
 func sessionExpire() {
     for now := range time.Tick(time.Minute) {
         t := now.Unix()
         for k, s := range sessions {
-            if s.UpdatedAt.Unix()+SessionDuration < t {
+            if s.UpdatedAt.Unix() + int64(SessionDuration) < t {
                 s.Clear()
                 delete(sessions, k)
             }

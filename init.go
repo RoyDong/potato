@@ -5,6 +5,8 @@ import (
     "log"
     "os"
     "strings"
+    "runtime"
+    "syscall"
 )
 
 var (
@@ -14,7 +16,7 @@ var (
     Pwd      string
     Daemon   bool
     Conf     *Tree
-    Logger   *log.Logger
+    Logger   = log.New(os.Stdout, "", log.LstdFlags)
     ConfDir  = "config/"
     TplDir   = "template/"
     LogDir   = "log/"
@@ -22,8 +24,7 @@ var (
     Port     = 37221
 )
 
-func Init() {
-    event.Trigger("before_init")
+func initConfig() {
     confile := "config.yml"
     for i, arg := range os.Args {
         if arg == "-d" {
@@ -36,10 +37,9 @@ func Init() {
         }
     }
 
-    //load config
     Conf = NewTree()
     if e := Conf.LoadYaml(confile, false); e != nil {
-        log.Fatal("potato: config file", e)
+        log.Fatal("potato: ", e)
     }
 
     if name, ok := Conf.String("name"); ok {
@@ -91,30 +91,9 @@ func Init() {
     if v, ok := Conf.String("pwd"); ok {
         Pwd = v
     }
-
-    if Pwd != "" {
-        os.Chdir(Pwd)
-    }
-
-    //logger
-    var logio *os.File
-    if Daemon {
-        var e error
-        logio, e = os.OpenFile(LogDir+Env+".log",
-            os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-        if e != nil {
-            log.Fatal("potato: log file", e)
-        }
-    } else {
-        logio = os.Stdout
-    }
-    Logger = log.New(logio, "", log.LstdFlags)
-    initOrm()
-    event.Trigger("after_init")
 }
 
 func initOrm() {
-    event.Trigger("before_orm_init")
     if c := Conf.Tree("sql"); c != nil {
         dbc := &orm.Config{
             Type:   "mysql",
@@ -149,5 +128,58 @@ func initOrm() {
 
         orm.Init(dbc, Logger)
     }
-    event.Trigger("after_orm_init")
+}
+
+func fork() {
+    darwin := runtime.GOOS == "darwin"
+    if syscall.Getppid() == 1 {
+        return
+    }
+
+    ret, ret2, err := syscall.RawSyscall(syscall.SYS_FORK, 0, 0, 0)
+    if err != 0 || ret2 < 0 {
+        Logger.Fatal("potato: error forking process")
+    }
+    if darwin && ret2 == 1 {
+        ret = 0
+    }
+    if ret > 0 {
+        os.Exit(0)
+    }
+
+    syscall.Umask(0)
+    sret, errno := syscall.Setsid()
+    if errno != nil {
+        Logger.Printf("potato: syscall.Setsid errno: %d", errno)
+    }
+    if sret < 0 {
+        Logger.Fatal("potato: error setting sid")
+    }
+
+    f, e := os.OpenFile(LogDir+Env+".log",
+        os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+    if e != nil {
+        Logger.Fatal("potato: log file", e)
+    }
+    Logger = log.New(f, "", log.LstdFlags)
+    if f, e = os.OpenFile("/dev/null", os.O_RDWR, 0); e == nil {
+        fd := int(f.Fd())
+        syscall.Dup2(fd, int(os.Stdin.Fd()))
+        syscall.Dup2(fd, int(os.Stdout.Fd()))
+        syscall.Dup2(fd, int(os.Stderr.Fd()))
+    }
+}
+
+func Init() {
+    println("work work")
+    event.Trigger("before_init")
+    initConfig()
+    if Pwd != "" {
+        os.Chdir(Pwd)
+    }
+    if Daemon {
+        fork()
+    }
+    initOrm()
+    event.Trigger("after_init")
 }

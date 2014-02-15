@@ -1,6 +1,7 @@
 package orm
 
 import (
+    "database/sql"
     "fmt"
     "reflect"
     "strings"
@@ -36,10 +37,10 @@ func NewModel(table string, v interface{}) *Model {
 }
 
 func (m *Model) Save(entity interface{}) bool {
-    return Save(entity)
+    return save(entity, nil)
 }
 
-func Save(entity interface{}) bool {
+func save(entity interface{}, tx *sql.Tx) bool {
     val := reflect.Indirect(reflect.ValueOf(entity))
     typ := val.Type()
     name := typ.Name()
@@ -74,7 +75,7 @@ func Save(entity interface{}) bool {
     }
 
     if pkv < 0 {
-        panic("orm: primary key not specified in any field tag")
+        panic("orm: primary key(id) not specified")
     }
 
     if pkv == 0 {
@@ -87,7 +88,14 @@ func Save(entity interface{}) bool {
 
         stmt := fmt.Sprintf("INSERT INTO `%s` (%s)VALUES(%s)",
             tbl, strings.Join(cs, ","), strings.Join(ph, ","))
-        result, e := DB.Exec(stmt, vals...)
+
+        var result sql.Result
+        var e error
+        if tx == nil {
+            result, e = DB.Exec(stmt, vals...)
+        } else {
+            result, e = tx.Exec(stmt, vals...)
+        }
         if e != nil {
             Logger.Println(e)
             return false
@@ -110,7 +118,15 @@ func Save(entity interface{}) bool {
 
     stmt := fmt.Sprintf("UPDATE `%s` SET %s WHERE `id` = %d",
         tbl, strings.Join(sets, ","), pkv)
-    if _, e := DB.Exec(stmt, vals...); e != nil {
+
+    var e error
+    if tx == nil {
+        _, e = DB.Exec(stmt, vals...)
+    } else {
+        _, e = tx.Exec(stmt, vals...)
+    }
+
+    if e != nil {
         Logger.Println(e)
         return false
     }

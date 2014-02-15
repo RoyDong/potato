@@ -16,6 +16,8 @@ const (
 )
 
 type Stmt struct {
+    tx *sql.Tx
+
     action int
 
     cols        []string
@@ -34,7 +36,8 @@ type Stmt struct {
 }
 
 func NewStmt() *Stmt {
-    return new(Stmt).init()
+    s := &Stmt{}
+    return s.init()
 }
 
 func (s *Stmt) init() *Stmt {
@@ -43,7 +46,6 @@ func (s *Stmt) init() *Stmt {
     s.names = make(map[string]string)
     s.joins = make([]string, 0)
     s.orders = make([]string, 0)
-
     return s
 }
 
@@ -57,7 +59,6 @@ func (s *Stmt) Clear() *Stmt {
     s.having = ""
     s.offset = 0
     s.limit = 0
-
     return s
 }
 
@@ -82,7 +83,6 @@ func (s *Stmt) Select(c string) *Stmt {
             }
         }
     }
-
     s.action = ActionSelect
     return s
 }
@@ -93,14 +93,12 @@ func (s *Stmt) From(name, alias string) *Stmt {
         s.names[alias] = name
         s.alias[name] = alias
     }
-
     return s
 }
 
 func (s *Stmt) Count(name, alias string) *Stmt {
     s.From(name, alias)
     s.action = ActionCount
-
     return s
 }
 
@@ -115,14 +113,12 @@ func (s *Stmt) Update(name, alias string, cols ...string) *Stmt {
     s.cols = cols
     s.From(name, alias)
     s.action = ActionUpdate
-
     return s
 }
 
 func (s *Stmt) Delete(name string) *Stmt {
     s.From(name, "")
     s.action = ActionDelete
-
     return s
 }
 
@@ -144,40 +140,33 @@ func (s *Stmt) Join(t, name, alias, on string) *Stmt {
             fmt.Sprintf(" %s JOIN `%s` %s ON %s", t, table, alias, on))
         s.alias[name] = alias
         s.names[alias] = name
-
         return s
     }
-
     panic(fmt.Sprintf("orm: model %s not found", name))
 }
 
 func (s *Stmt) Where(where string) *Stmt {
     s.where = " WHERE " + where
-
     return s
 }
 
 func (s *Stmt) Offset(offset int64) *Stmt {
     s.offset = offset
-
     return s
 }
 
 func (s *Stmt) Limit(limit int64) *Stmt {
     s.limit = limit
-
     return s
 }
 
 func (s *Stmt) GroupBy(g string) *Stmt {
     s.group = " GROUP BY " + g
-
     return s
 }
 
 func (s *Stmt) Having(h string) *Stmt {
     s.having = " HAVING " + h
-
     return s
 }
 
@@ -185,25 +174,21 @@ func (s *Stmt) order() string {
     if len(s.orders) > 0 {
         return fmt.Sprintf(" ORDER BY %s", strings.Join(s.orders, ","))
     }
-
     return ""
 }
 
 func (s *Stmt) Desc(col string) *Stmt {
     s.orders = append(s.orders, fmt.Sprintf("%s DESC", col))
-
     return s
 }
 
 func (s *Stmt) Asc(col string) *Stmt {
     s.orders = append(s.orders, fmt.Sprintf("%s ASC", col))
-
     return s
 }
 
-func (s *Stmt) OrderBy(order string) *Stmt {
-    s.orders = append(s.orders, order)
-
+func (s *Stmt) OrderBy(col, order string) *Stmt {
+    s.orders = append(s.orders, fmt.Sprintf("%s %s", col, order))
     return s
 }
 
@@ -283,6 +268,17 @@ func (s *Stmt) deleteStmt() string {
     return stmt
 }
 
+func (s *Stmt) exec(query string, args ...interface{}) (sql.Result, error) {
+    var e error
+    var ret sql.Result
+    if s.tx == nil {
+        ret, e= DB.Exec(query, args...)
+    } else {
+        ret, e = s.tx.Exec(query, args...)
+    }
+    return ret, e
+}
+
 func (s *Stmt) insert(args ...interface{}) (int64, error) {
     n := len(args)
     if n != len(s.cols) {
@@ -307,7 +303,7 @@ func (s *Stmt) insert(args ...interface{}) (int64, error) {
     stmt := fmt.Sprintf("INSERT INTO `%s` (%s)VALUES(%s)",
         s.table(), strings.Join(c, ","), strings.Join(h, ","))
 
-    result, e := DB.Exec(stmt, v...)
+    result, e := s.exec(stmt, v...)
     if e != nil {
         return 0, e
     }
@@ -325,7 +321,12 @@ func (s *Stmt) Exec(args ...interface{}) (int64, error) {
 
     var n int64
     if s.action == ActionCount {
-        row := DB.QueryRow(s.countStmt(), args...)
+        var row *sql.Row
+        if s.tx == nil {
+            row = DB.QueryRow(s.countStmt(), args...)
+        } else {
+            row = s.tx.QueryRow(s.countStmt(), args...)
+        }
         e := row.Scan(&n)
         return n, e
     }
@@ -338,11 +339,11 @@ func (s *Stmt) Exec(args ...interface{}) (int64, error) {
     }
 
     if s.action == ActionUpdate {
-        result, e = DB.Exec(s.updateStmt(), args...)
+        result, e = s.exec(s.updateStmt(), args...)
     }
 
     if s.action == ActionDelete {
-        result, e = DB.Exec(s.deleteStmt(), args...)
+        result, e = s.exec(s.deleteStmt(), args...)
     }
 
     if e != nil {
@@ -354,7 +355,13 @@ func (s *Stmt) Exec(args ...interface{}) (int64, error) {
 }
 
 func (s *Stmt) Query(args ...interface{}) (*Rows, error) {
-    rows, e := DB.Query(s.selectStmt(), args...)
+    var rows *sql.Rows
+    var e error
+    if s.tx == nil {
+        rows, e = DB.Query(s.selectStmt(), args...)
+    } else {
+        rows, e = s.tx.Query(s.selectStmt(), args...)
+    }
     if e != nil {
         return nil, e
     }
@@ -365,4 +372,37 @@ func (s *Stmt) Query(args ...interface{}) (*Rows, error) {
     }
 
     return &Rows{rows, s.alias, columns}, nil
+}
+
+
+type Tx struct {
+    tx *sql.Tx
+}
+
+func NewTx() (*Tx, error) {
+    tx, e := DB.Begin()
+    if e != nil {
+        Logger.Println("orm: ", e)
+        return nil, e
+    }
+    return &Tx{tx}, nil
+}
+
+func (tx *Tx) Stmt() *Stmt {
+    s := &Stmt{}
+    s.init()
+    s.tx = tx.tx
+    return s
+}
+
+func (tx *Tx) Save(entity interface{}) bool {
+    return save(entity, tx.tx)
+}
+
+func (tx *Tx) Commit() error {
+    return tx.tx.Commit()
+}
+
+func (tx *Tx) Rollback() error {
+    return tx.tx.Rollback()
 }

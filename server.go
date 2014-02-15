@@ -6,9 +6,7 @@ import (
     "net"
     "net/http"
     "os"
-    "runtime"
     "strings"
-    "syscall"
 )
 
 /**
@@ -53,7 +51,6 @@ var ErrorAction = func(r *Request, p *Response) error {
     }
     p.WriteHeader(500)
     p.Write([]byte("error: " + msg))
-    Logger.Println(e)
     return nil
 }
 
@@ -73,13 +70,17 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     InitSession(request, response)
     event.Trigger("request", request, response)
 
-    var rt *Route
-    rt, request.params = route.Parse(r.URL.Path)
+    if Env == "dev" {
+        tpl.Load(TplDir)
+    }
+
+    var action Action
+    action, request.params = route.Parse(r.URL.Path)
     event.Trigger("before_action", request, response)
-    if rt == nil {
+    if action == nil {
         NotfoundAction(request, response)
     } else {
-        if e := rt.action(request, response); e != nil {
+        if e := action(request, response); e != nil {
             request.Bag.Set("error", e)
             ErrorAction(request, response)
         }
@@ -105,52 +106,13 @@ func listener() net.Listener {
     return lsr
 }
 
-func fork() {
-    darwin := runtime.GOOS == "darwin"
-    if syscall.Getppid() == 1 {
-        return
-    }
-
-    ret, ret2, err := syscall.RawSyscall(syscall.SYS_FORK, 0, 0, 0)
-    if err != 0 || ret2 < 0 {
-        Logger.Fatal("potato: error forking process")
-    }
-    if darwin && ret2 == 1 {
-        ret = 0
-    }
-    if ret > 0 {
-        os.Exit(0)
-    }
-
-    syscall.Umask(0)
-    sret, errno := syscall.Setsid()
-    if errno != nil {
-        Logger.Printf("potato: syscall.Setsid errno: %d", errno)
-    }
-    if sret < 0 {
-        Logger.Fatal("potato: error setting sid")
-    }
-
-    println("work work")
-    f, e := os.OpenFile("/dev/null", os.O_RDWR, 0)
-    if e == nil {
-        fd := int(f.Fd())
-        syscall.Dup2(fd, int(os.Stdin.Fd()))
-        syscall.Dup2(fd, int(os.Stdout.Fd()))
-        syscall.Dup2(fd, int(os.Stderr.Fd()))
-    }
-}
-
 func Serve() {
     tpl.Load(TplDir)
+    go sessionExpire()
     srv := &http.Server{Handler: &handler{ws.Server{}}}
     lsr := listener()
     defer lsr.Close()
-    go sessionExpire()
-    if Daemon {
-        fork()
-    } else {
-        println("work work")
-    }
+    event.Trigger("before_serve")
+    defer event.Trigger("after_serve")
     Logger.Println(srv.Serve(lsr))
 }

@@ -14,7 +14,7 @@ type Route struct {
     action Action
 }
 
-func (r *Route) Parse(path string) (*Route, []string) {
+func (r *Route) Parse(path string) (Action, []string) {
     current := r
     params := []string{}
     nodes := strings.Split(
@@ -40,7 +40,7 @@ func (r *Route) Parse(path string) (*Route, []string) {
             return nil, nil
         }
     }
-    return current, params
+    return current.action, params
 }
 
 func (r *Route) Set(path string, action Action) {
@@ -70,12 +70,4 @@ func (r *Route) Set(path string, action Action) {
         current = rt
     }
     current.action = action
-}
-
-func (r *Route) Name() string {
-    return r.name
-}
-
-func (r *Route) Action() Action {
-    return r.action
 }

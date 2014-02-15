@@ -8,7 +8,7 @@ import (
 
 type Tree struct {
     name string
-    branches []*Tree
+    branches map[string]*Tree
     value interface{}
     locker *sync.Mutex
 }
@@ -17,37 +17,37 @@ func NewTree() *Tree {
     return &Tree{locker: &sync.Mutex{}}
 }
 
-/**
- * LoadYaml loads data written in yaml file
- * repl means whether to replace or keep the old value
- */
+/*
+LoadYaml loads data read from a yaml file,
+repl means whether to replace or keep the old value
+*/
 func (t *Tree) LoadYaml(file string, repl bool) error {
     var yml interface{}
     if e := LoadYaml(&yml, file); e != nil {
         return e
     }
-    load2Tree(t, yml, repl)
+    data2Tree(t, yml, repl)
     return nil
 }
 
-/**
- * LoadJson loads data written in yaml file
- * repl means whether to replace or keep the old value
- */
+/*
+LoadJson loads data read from a json file,
+repl means whether to replace or keep the old value
+*/
 func (t *Tree) LoadJson(file string, repl bool) error {
     var json interface{}
     if e := LoadJson(&json, file); e != nil {
         return e
     }
-    load2Tree(t, json, repl)
+    data2Tree(t, json, repl)
     return nil
 }
 
-func load2Tree(t *Tree, d interface{}, repl bool) {
+func data2Tree(t *Tree, d interface{}, repl bool) {
     if v, ok := d.(map[interface{}]interface{}); ok {
         map2Tree(t, v, repl)
     } else if v, ok := d.([]interface{}); ok {
-        arr2Tree(t, v, repl)
+        array2Tree(t, v, repl)
     } else if repl || t.value == nil {
         t.value = d
     }
@@ -55,35 +55,39 @@ func load2Tree(t *Tree, d interface{}, repl bool) {
 
 func map2Tree(t *Tree, d map[interface{}]interface{}, repl bool) {
     if t.branches == nil {
-        t.branches = make([]*Tree, 0)
+        t.branches = make(map[string]*Tree)
     }
     for k, v := range d {
-        value2Tree(t, k.(string), v, repl)
+        var key string
+        if v, ok := k.(string); ok {
+            key = v
+        } else if v, ok := k.(int); ok {
+            key = fmt.Sprintf("%d", v)
+        } else {
+            continue
+        }
+        tree, has := t.branches[key]
+        if !has {
+            tree = &Tree{name: key}
+            t.branches[key] = tree
+        }
+        data2Tree(tree, v, repl)
     }
 }
 
-func arr2Tree(t *Tree, d []interface{}, repl bool) {
+func array2Tree(t *Tree, d []interface{}, repl bool) {
     if t.branches == nil {
-        t.branches = make([]*Tree, 0)
+        t.branches = make(map[string]*Tree)
     }
     for i, v := range d {
-        value2Tree(t, fmt.Sprintf("%d", i) , v, repl)
-    }
-}
-
-func value2Tree(t *Tree, k string, v interface{}, repl bool) {
-    var tree *Tree
-    for _, b := range t.branches {
-        if b.name == k {
-            tree = b
-            break
+        key := fmt.Sprintf("%d", i)
+        tree, has := t.branches[key]
+        if !has {
+            tree = &Tree{name: key}
+            t.branches[key] = tree
         }
+        data2Tree(tree, v, repl)
     }
-    if tree == nil {
-        tree = &Tree{name: k}
-    }
-    t.branches = append(t.branches, tree)
-    load2Tree(tree, v, repl)
 }
 
 func (t *Tree) find(key string) *Tree {
@@ -94,15 +98,8 @@ func (t *Tree) find(key string) *Tree {
     nodes := strings.Split(
         strings.ToLower(strings.Trim(key, ".")), ".")
     for _, name := range nodes {
-        found := false
-        for _, tree := range current.branches {
-            if name == tree.name {
-                found = true
-                current = tree
-                break
-            }
-        }
-        if !found {
+        var has bool
+        if current, has = current.branches[name]; !has {
             return nil
         }
     }
@@ -118,25 +115,24 @@ func (t *Tree) Get(key string) interface{} {
 }
 
 func (t *Tree) prepare(key string) *Tree {
+    if key == "" {
+        return t
+    }
     current := t
     nodes := strings.Split(
         strings.ToLower(strings.Trim(key, ".")), ".")
     for _, name := range nodes {
-        var found bool
         var tree *Tree
-        for _, tree = range current.branches {
-            if name == tree.name {
-                found = true
-                current = tree
-                break
-            }
+        var has bool
+        if current.branches == nil {
+            current.branches = make(map[string]*Tree)
+            has = false
+        } else {
+            tree, has = current.branches[name]
         }
-        if !found {
+        if !has {
             tree = &Tree{name: name}
-            if current.branches == nil {
-                current.branches = make([]*Tree, 0)
-            }
-            current.branches = append(current.branches, tree)
+            current.branches[name] = tree
         }
         current = tree
     }
@@ -171,6 +167,7 @@ func (t *Tree) Tree(key string) *Tree {
 
 func (t *Tree) Clear() {
     t.branches = nil
+    t.value = nil
 }
 
 func (t *Tree) Int(key string) (int, bool) {
@@ -183,8 +180,12 @@ func (t *Tree) Int(key string) (int, bool) {
 
 func (t *Tree) Int64(key string) (int64, bool) {
     if v := t.Get(key); v != nil {
-        i, ok := v.(int64)
-        return i, ok
+        if i, ok := v.(int64); ok {
+            return v, true
+        }
+        if i, ok := v.(int); ok {
+            return int64(i), ok
+        }
     }
     return 0, false
 }
