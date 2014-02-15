@@ -2,6 +2,7 @@ package potato
 
 import (
     ws "code.google.com/p/go.net/websocket"
+    "github.com/roydong/potato/lib"
     "net/http"
     "strconv"
 )
@@ -12,14 +13,14 @@ type Request struct {
     params  []string
     Session *Session
     Cookies []*http.Cookie
-    Bag     *Tree
+    Bag     *lib.Tree
 }
 
 func NewRequest(r *http.Request) *Request {
     return &Request{
         Request: r,
         Cookies: r.Cookies(),
-        Bag:     NewTree(),
+        Bag:     lib.NewTree(),
     }
 }
 

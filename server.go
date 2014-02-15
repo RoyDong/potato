@@ -2,6 +2,7 @@ package potato
 
 import (
     ws "code.google.com/p/go.net/websocket"
+    "github.com/roydong/potato/lib"
     "fmt"
     "net"
     "net/http"
@@ -23,9 +24,9 @@ import (
  *
  *  response, just before response
  */
-var event = NewEvent()
+var event = lib.NewEvent()
 
-func AddHandler(name string, handler EventHandler) {
+func AddHandler(name string, handler lib.EventHandler) {
     event.AddHandler(name, handler)
 }
 

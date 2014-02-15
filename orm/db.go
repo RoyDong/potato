@@ -1,47 +1,48 @@
 package orm
 
 import (
+    "github.com/roydong/potato/lib"
     "database/sql"
+    "os"
     "fmt"
     "log"
 )
 
 var (
     DB     *sql.DB
-    Logger *log.Logger
-    Conf   *Config
+    Conf   *lib.Tree
+    Logger = log.New(os.Stdout, "", log.LstdFlags)
 )
 
-type Config struct {
-    Type    string
-    Host    string
-    Port    int
-    User    string
-    Pass    string
-    DBname  string
-    MaxConn int
-}
-
-func Init(conf *Config, logger *log.Logger) {
+func Init(conf *lib.Tree, logger *log.Logger) {
     Logger = logger
     Conf = conf
     DB = NewDB()
 }
 
 func NewDB() *sql.DB {
+    dbc := Conf.Tree("db")
+    if dbc == nil {
+        Logger.Fatal("orm: db config not found")
+    }
+
+    user, _ := dbc.String("user")
+    pass, _ := dbc.String("pass")
+    host, _ := dbc.String("host")
+    port, _ := dbc.Int("port")
+    name, _ := dbc.String("dbname")
+    maxc, _ := dbc.Int("max_conn")
+
     var db *sql.DB
     var e error
-
-    dsn := fmt.Sprintf("%s:%s@(%s:%d)/%s",
-        Conf.User, Conf.Pass, Conf.Host,
-        Conf.Port, Conf.DBname)
-
-    if db, e = sql.Open(Conf.Type, dsn); e != nil {
+    dsn := fmt.Sprintf("%s:%s@(%s:%d)/%s", user, pass, host, port, name)
+    typ, _ := dbc.String("type")
+    if db, e = sql.Open(typ, dsn); e != nil {
         log.Fatal("orm:", e)
     }
 
-    if Conf.MaxConn > 0 {
-        db.SetMaxOpenConns(Conf.MaxConn)
+    if maxc > 0 {
+        db.SetMaxOpenConns(maxc)
     }
 
     if e = db.Ping(); e != nil {

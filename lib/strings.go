@@ -1,4 +1,4 @@
-package potato
+package lib
 
 import (
     "bytes"

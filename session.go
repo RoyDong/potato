@@ -1,6 +1,7 @@
 package potato
 
 import (
+    "github.com/roydong/potato/lib"
     "crypto/md5"
     "crypto/rand"
     "encoding/hex"
@@ -17,7 +18,7 @@ var (
 )
 
 type Session struct {
-    *Tree
+    *lib.Tree
     Id        string
     UpdatedAt time.Time
 }
@@ -26,7 +27,7 @@ var sessions = make(map[string]*Session)
 
 func NewSession(r *Request, p *Response) *Session {
     s := &Session{
-        Tree:      NewTree(),
+        Tree:      lib.NewTree(),
         Id:        sessionId(r),
         UpdatedAt: time.Now(),
     }

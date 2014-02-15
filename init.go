@@ -1,6 +1,7 @@
 package potato
 
 import (
+    "github.com/roydong/potato/lib"
     "github.com/roydong/potato/orm"
     "log"
     "os"
@@ -15,7 +16,7 @@ var (
     SockFile string
     Pwd      string
     Daemon   bool
-    Conf     *Tree
+    Conf     *lib.Tree
     Logger   = log.New(os.Stdout, "", log.LstdFlags)
     ConfDir  = "config/"
     TplDir   = "template/"
@@ -37,7 +38,7 @@ func initConfig() {
         }
     }
 
-    Conf = NewTree()
+    Conf = lib.NewTree()
     if e := Conf.LoadYaml(confile, false); e != nil {
         log.Fatal("potato: ", e)
     }
@@ -94,40 +95,7 @@ func initConfig() {
 }
 
 func initOrm() {
-    if c := Conf.Tree("sql"); c != nil {
-        dbc := &orm.Config{
-            Type:   "mysql",
-            Host:   "localhost",
-            Port:   3306,
-            User:   "root",
-            Pass:   "",
-            DBname: "",
-        }
-
-        if v, ok := c.String("type"); ok {
-            dbc.Type = v
-        }
-        if v, ok := c.String("host"); ok {
-            dbc.Host = v
-        }
-        if v, ok := c.Int("port"); ok {
-            dbc.Port = v
-        }
-        if v, ok := c.String("user"); ok {
-            dbc.User = v
-        }
-        if v, ok := c.String("pass"); ok {
-            dbc.Pass = v
-        }
-        if v, ok := c.String("dbname"); ok {
-            dbc.DBname = v
-        }
-        if v, ok := c.Int("max_conn"); ok {
-            dbc.MaxConn = v
-        }
-
-        orm.Init(dbc, Logger)
-    }
+    orm.Init(Conf, Logger)
 }
 
 func fork() {
