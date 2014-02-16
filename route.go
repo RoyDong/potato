@@ -5,7 +5,7 @@ import (
     "strings"
 )
 
-type Action func(r *Request, p *Response) error
+type Action func(r *Request, p *Response) *Error
 
 type Route struct {
     name   string
@@ -16,9 +16,8 @@ type Route struct {
 
 func (r *Route) Parse(path string) (Action, []string) {
     current := r
-    params := []string{}
-    nodes := strings.Split(
-        strings.ToLower(strings.Trim(path, "/")), "/")
+    params := make([]string, 0)
+    nodes := strings.Split(strings.ToLower(strings.Trim(path, "/")), "/")
     for _, name := range nodes {
         found := false
         for _, route := range current.routes {
@@ -45,8 +44,7 @@ func (r *Route) Parse(path string) (Action, []string) {
 
 func (r *Route) Set(path string, action Action) {
     current := r
-    nodes := strings.Split(
-        strings.ToLower(strings.Trim(path, "/")), "/")
+    nodes := strings.Split(strings.ToLower(strings.Trim(path, "/")), "/")
     for _, name := range nodes {
         var found bool
         var rt *Route

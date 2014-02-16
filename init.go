@@ -94,10 +94,6 @@ func initConfig() {
     }
 }
 
-func initOrm() {
-    orm.Init(Conf, Logger)
-}
-
 func fork() {
     darwin := runtime.GOOS == "darwin"
     if syscall.Getppid() == 1 {
@@ -148,6 +144,6 @@ func Init() {
     if Daemon {
         fork()
     }
-    initOrm()
+    orm.Init(Conf, Logger)
     event.Trigger("after_init")
 }

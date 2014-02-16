@@ -11,6 +11,7 @@ type Tree struct {
     branches map[string]*Tree
     value interface{}
     locker *sync.Mutex
+    parent *Tree
 }
 
 func NewTree() *Tree {
@@ -42,6 +43,7 @@ func (t *Tree) LoadJson(file string, repl bool) error {
     t.loadValue(json, repl)
     return nil
 }
+
 func (t *Tree) loadValue(val interface{}, repl bool) {
     if v, ok := val.(map[interface{}]interface{}); ok {
         t.loadBranches(v, nil, repl)
@@ -67,7 +69,7 @@ func (t *Tree) loadBranches(m map[interface{}]interface{}, arr []interface{}, re
 func (t *Tree) loadBranch(key string, val interface{}, repl bool) {
     tree, has := t.branches[key]
     if !has {
-        tree = &Tree{name: key}
+        tree = &Tree{name: key, locker: t.locker, parent: t}
         t.branches[key] = tree
     }
     tree.loadValue(val, repl)
@@ -114,7 +116,7 @@ func (t *Tree) prepare(key string) *Tree {
             tree, has = current.branches[name]
         }
         if !has {
-            tree = &Tree{name: name}
+            tree = &Tree{name: name, locker: t.locker, parent: t}
             current.branches[name] = tree
         }
         current = tree
@@ -139,13 +141,30 @@ func (t *Tree) Add(key string, val interface{}) bool {
     return false
 }
 
+func (t *Tree) Cut(key string) *Tree {
+    t.locker.Lock()
+    defer t.locker.Unlock()
+    tree := t.find(key)
+    if tree == nil {
+        return nil
+    }
+    if tree.parent != nil {
+        delete(tree.parent.branches, tree.name)
+        tree.locker = &sync.Mutex{}
+    }
+    return tree
+}
+
 func (t *Tree) Tree(key string) *Tree {
     tree := t.find(key)
     if tree == nil {
         return nil
     }
-    tree.locker = t.locker
     return tree
+}
+
+func (t *Tree) Branches() map[string]*Tree {
+    return t.branches
 }
 
 func (t *Tree) Clear() {

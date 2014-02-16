@@ -38,21 +38,8 @@ func SetAction(action Action, patterns ...string) {
     }
 }
 
-var NotfoundAction = func(r *Request, p *Response) error {
-    p.WriteHeader(404)
-    p.Write([]byte("page not found"))
-    return nil
-}
-
-var ErrorAction = func(r *Request, p *Response) error {
-    msg := "unknown"
-    e, ok := r.Bag.Get("error").(error)
-    if ok {
-        msg = e.Error()
-    }
-    p.WriteHeader(500)
-    p.Write([]byte("error: " + msg))
-    return nil
+var ErrorAction = func(r *Request, p *Response, e *Error) {
+    p.Write([]byte(e.Error()))
 }
 
 type handler struct {
@@ -69,22 +56,18 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }
     response := NewResponse(w)
     InitSession(request, response)
-    event.Trigger("request", request, response)
-
     if Env == "dev" {
         tpl.Load(TplDir)
     }
 
+    event.Trigger("request", request, response)
     var action Action
     action, request.params = route.Parse(r.URL.Path)
     event.Trigger("before_action", request, response)
     if action == nil {
-        NotfoundAction(request, response)
-    } else {
-        if e := action(request, response); e != nil {
-            request.Bag.Set("error", e)
-            ErrorAction(request, response)
-        }
+        ErrorAction(request, response, NewError(404, "page not found"))
+    } else if e := action(request, response); e != nil {
+        ErrorAction(request, response, e)
     }
     event.Trigger("response", request, response)
 }
