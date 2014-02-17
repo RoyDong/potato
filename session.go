@@ -25,7 +25,7 @@ type Session struct {
 
 var sessions = make(map[string]*Session)
 
-func NewSession(r *Request, w http.ResponseWriter) *Session {
+func NewSession(r *Request) *Session {
     s := &Session{
         Tree:      lib.NewTree(),
         Id:        sessionId(r),
@@ -33,7 +33,7 @@ func NewSession(r *Request, w http.ResponseWriter) *Session {
     }
     //set cookie
     sessions[s.Id] = s
-    http.SetCookie(w, &http.Cookie{
+    http.SetCookie(r.rw, &http.Cookie{
         Name:     SessionCookieName,
         Value:    s.Id,
         Path:     "/",
@@ -47,7 +47,7 @@ func NewSession(r *Request, w http.ResponseWriter) *Session {
 InitSession find session by session id set to request
 if none found then create a new session
 */
-func initSession(r *Request, w http.ResponseWriter) {
+func initSession(r *Request) {
     if c := r.Cookie(SessionCookieName); c != nil {
         var has bool
         if r.Session, has = sessions[c.Value]; has {
@@ -60,7 +60,7 @@ func initSession(r *Request, w http.ResponseWriter) {
         }
     }
     if r.Session == nil {
-        r.Session = NewSession(r, w)
+        r.Session = NewSession(r)
     }
 }
 

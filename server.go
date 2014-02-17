@@ -39,7 +39,7 @@ func SetAction(action Action, patterns ...string) {
 }
 
 var ErrorAction = func(r *Request, c int, m string) *Response {
-    resp := TextResponse(fmt.Sprintf("code: %d, message: %s", c, m))
+    resp := r.TextResponse(fmt.Sprintf("code: %d, message: %s", c, m))
     resp.Status = c
     return resp
 }
@@ -49,14 +49,14 @@ type handler struct {
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-    request := NewRequest(r)
+    request := NewRequest(w, r)
     if strings.ToLower(r.Header.Get("Upgrade")) == "websocket" {
         if conn := h.Conn(w, r); conn != nil {
             request.WSConn = conn
             defer conn.Close()
         }
     }
-    initSession(request, w)
+    initSession(request)
     if Env == "dev" {
         tpl.Load(TplDir)
     }
@@ -74,7 +74,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }
 
     event.Trigger("response", request, resp)
-    resp.flush(w, request.Request)
+    resp.flush()
 }
 
 func listener() net.Listener {
