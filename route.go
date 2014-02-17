@@ -5,7 +5,7 @@ import (
     "strings"
 )
 
-type Action func(r *Request, p *Response) *Error
+type Action func(r *Request) *Response
 
 type Route struct {
     name   string

@@ -38,8 +38,10 @@ func SetAction(action Action, patterns ...string) {
     }
 }
 
-var ErrorAction = func(r *Request, p *Response, e *Error) {
-    p.Write([]byte(e.Error()))
+var ErrorAction = func(r *Request, c int, m string) *Response {
+    resp := TextResponse(fmt.Sprintf("code: %d, message: %s", c, m))
+    resp.Status = c
+    return resp
 }
 
 type handler struct {
@@ -54,22 +56,25 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
             defer conn.Close()
         }
     }
-    response := NewResponse(w)
-    InitSession(request, response)
+    initSession(request, w)
     if Env == "dev" {
         tpl.Load(TplDir)
     }
 
-    event.Trigger("request", request, response)
     var action Action
+    event.Trigger("request", request)
     action, request.params = route.Parse(r.URL.Path)
-    event.Trigger("before_action", request, response)
+    event.Trigger("before_action", request)
+
+    var resp *Response
     if action == nil {
-        ErrorAction(request, response, NewError(404, "page not found"))
-    } else if e := action(request, response); e != nil {
-        ErrorAction(request, response, e)
+        resp = ErrorAction(request, 404, "page not found")
+    } else if resp = action(request); resp.code > 0 {
+        resp = ErrorAction(request, resp.code, resp.message)
     }
-    event.Trigger("response", request, response)
+
+    event.Trigger("response", request, resp)
+    resp.flush(w, request.Request)
 }
 
 func listener() net.Listener {
