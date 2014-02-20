@@ -32,15 +32,15 @@ func TemplateFuncs(funcs map[string]interface{}) {
 
 type Request struct {
     *http.Request
-    WSConn  *ws.Conn
     Session *Session
     Cookies []*http.Cookie
     Bag     *lib.Tree
     params  []string
+    ws      *ws.Conn
     rw      http.ResponseWriter
 }
 
-func NewRequest(w http.ResponseWriter, r *http.Request) *Request {
+func newRequest(w http.ResponseWriter, r *http.Request) *Request {
     return &Request{
         Request: r,
         Cookies: r.Cookies(),
@@ -103,11 +103,11 @@ func (r *Request) Cookie(name string) *http.Cookie {
 }
 
 func (r *Request) WSReceive() string {
-    if r.WSConn == nil {
+    if r.ws == nil {
         panic("potato: normal request no websocket")
     }
     var txt string
-    if e := ws.Message.Receive(r.WSConn, &txt); e != nil {
+    if e := ws.Message.Receive(r.ws, &txt); e != nil {
         Logger.Println(e)
         return ""
     }
@@ -115,7 +115,7 @@ func (r *Request) WSReceive() string {
 }
 
 func (r *Request) WSSend(txt string) bool {
-    if e := ws.Message.Send(r.WSConn, txt); e != nil {
+    if e := ws.Message.Send(r.ws, txt); e != nil {
         Logger.Println(e)
         return false
     }
@@ -123,7 +123,7 @@ func (r *Request) WSSend(txt string) bool {
 }
 
 func (r *Request) WSSendJson(v interface{}) bool {
-    if e := ws.JSON.Send(r.WSConn, v); e != nil {
+    if e := ws.JSON.Send(r.ws, v); e != nil {
         Logger.Println(e)
         return false
     }
@@ -131,21 +131,16 @@ func (r *Request) WSSendJson(v interface{}) bool {
 }
 
 type Response struct {
-    Request *Request
-    Status   int
-    cookies  []*http.Cookie
-    body     []byte
-    code     int
-    message  string
-    redirect string
-    rw       http.ResponseWriter
+    code    int
+    message string
+    body    []byte
+    cookies []*http.Cookie
+    rw      http.ResponseWriter
 }
 
 func (r *Request) newResponse() *Response {
     return &Response{
-        Request: r,
         rw: r.rw,
-        Status: http.StatusOK,
         cookies: make([]*http.Cookie, 0),
     }
 }
@@ -187,27 +182,31 @@ func (r *Request) JsonResponse(data interface{}) *Response {
         panic("potato: " + e.Error())
     }
     p := r.newResponse()
-    p.Header().Set("Content-Type", "application/json;")
+    p.rw.Header().Set("Content-Type", "application/json;")
     p.body = json
     return p
 }
 
-func (r *Request) ErrorResponse(c int, m string) *Response {
+func (r *Request) ErrorResponse(code int, msg string) *Response {
     p := r.newResponse()
-    p.code = c
-    p.message = m
+    p.code = code
+    p.message = msg
     return p
 }
 
-func (r *Request) RedirectResponse(url string, status int) *Response {
+func (r *Request) RedirectResponse(url string, code int) *Response {
     p := r.newResponse()
-    p.Status = status
-    p.redirect = url
+    p.code = code
+    p.message = url
     return p
 }
 
 func (p *Response) Header() http.Header {
     return p.rw.Header()
+}
+
+func (p *Response) WriteHeader(code int) {
+    p.rw.WriteHeader(code)
 }
 
 func (p *Response) SetCookie(c *http.Cookie) *Response {
@@ -217,13 +216,4 @@ func (p *Response) SetCookie(c *http.Cookie) *Response {
 
 func (p *Response) Body() []byte {
     return p.body
-}
-
-func (p *Response) flush() {
-    if p.redirect == "" {
-        p.rw.WriteHeader(p.Status)
-        p.rw.Write(p.body)
-    } else {
-        http.Redirect(p.rw, p.Request.Request, p.redirect, p.Status)
-    }
 }

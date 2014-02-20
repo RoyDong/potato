@@ -40,7 +40,7 @@ func SetAction(action Action, patterns ...string) {
 
 var ErrorAction = func(r *Request, c int, m string) *Response {
     resp := r.TextResponse(fmt.Sprintf("code: %d, message: %s", c, m))
-    resp.Status = c
+    resp.WriteHeader(c)
     return resp
 }
 
@@ -49,32 +49,36 @@ type handler struct {
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-    request := NewRequest(w, r)
+    req := newRequest(w, r)
     if strings.ToLower(r.Header.Get("Upgrade")) == "websocket" {
         if conn := h.Conn(w, r); conn != nil {
-            request.WSConn = conn
+            req.ws = conn
             defer conn.Close()
         }
     }
-    initSession(request)
+    initSession(req)
+    event.Trigger("request", req)
     if Env == "dev" {
         tpl.Load(TplDir)
     }
 
-    var action Action
-    event.Trigger("request", request)
-    action, request.params = route.Parse(r.URL.Path)
-    event.Trigger("before_action", request)
+    var act Action
+    act, req.params = route.Parse(r.URL.Path)
+    event.Trigger("action", req)
 
     var resp *Response
-    if action == nil {
-        resp = ErrorAction(request, 404, "page not found")
-    } else if resp = action(request); resp.code > 0 {
-        resp = ErrorAction(request, resp.code, resp.message)
+    if act == nil {
+        resp = ErrorAction(req, 404, "route not found")
+    } else if resp = act(req); resp.code >= 400 {
+        resp = ErrorAction(req, resp.code, resp.message)
     }
 
-    event.Trigger("response", request, resp)
-    resp.flush()
+    event.Trigger("respond", req, resp)
+    if resp.code >= 300 && resp.code < 400 {
+        http.Redirect(w, r, resp.message, resp.code)
+    } else {
+        w.Write(resp.body)
+    }
 }
 
 func listener() net.Listener {
