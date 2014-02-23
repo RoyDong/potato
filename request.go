@@ -4,6 +4,7 @@ import (
     ws "code.google.com/p/go.net/websocket"
     "github.com/roydong/potato/lib"
     "encoding/json"
+    "html/template"
     "net/http"
     "strconv"
     "bytes"
@@ -21,8 +22,6 @@ const (
     StatusHTTPVersionNotSupported = 505
 )
 
-var DefaultLayout = "layout"
-
 
 var tpl = NewTemplate()
 
@@ -30,6 +29,9 @@ func TemplateFuncs(funcs map[string]interface{}) {
     tpl.AddFuncs(funcs)
 }
 
+/*
+consider it's the scope for an http request
+*/
 type Request struct {
     *http.Request
     Session *Session
@@ -131,18 +133,15 @@ func (r *Request) WSSendJson(v interface{}) bool {
 }
 
 type Response struct {
+    status  int
     code    int
     message string
     body    []byte
-    cookies []*http.Cookie
     rw      http.ResponseWriter
 }
 
 func (r *Request) newResponse() *Response {
-    return &Response{
-        rw: r.rw,
-        cookies: make([]*http.Cookie, 0),
-    }
+    return &Response{rw: r.rw}
 }
 
 func (r *Request) TextResponse(txt string) *Response {
@@ -152,28 +151,29 @@ func (r *Request) TextResponse(txt string) *Response {
 }
 
 func (r *Request) HtmlResponse(name string, data interface{}) *Response {
-    if t := tpl.Template(DefaultLayout); t != nil {
-        p := r.newResponse()
-        html := NewHtml()
-        html.Data = data
-        html.Content = tpl.Include(name, html)
-        b := &bytes.Buffer{}
-        t.Execute(b, html)
-        p.body = b.Bytes()
-        return p
+    var t *template.Template
+    buffer := &bytes.Buffer{}
+    resp := r.newResponse()
+    html := NewHtml()
+    html.Data = data
+    t = tpl.Template(name)
+    if t == nil {
+        panic("potato: " + name + " template not found")
     }
-    panic("potato: " + DefaultLayout + " template not found")
-}
+    t.Execute(buffer, html)
 
-func (r *Request) PartialResponse(name string, data interface{}) *Response {
-    if t := tpl.Template(name); t != nil {
-        p := r.newResponse()
-        b := &bytes.Buffer{}
-        t.Execute(b, data)
-        p.body = b.Bytes()
-        return p
+    //has layout
+    if html.layout != "" {
+        t = tpl.Template(html.layout)
+        if t == nil {
+            panic("potato: " + html.layout + " template not found")
+        }
+        html.Content = template.HTML(buffer.Bytes())
+        buffer.Truncate(0)
+        t.Execute(buffer, html)
     }
-    panic("potato: " + name + " template not found")
+    resp.body = buffer.Bytes()
+    return resp
 }
 
 func (r *Request) JsonResponse(data interface{}) *Response {
@@ -194,9 +194,9 @@ func (r *Request) ErrorResponse(code int, msg string) *Response {
     return p
 }
 
-func (r *Request) RedirectResponse(url string, code int) *Response {
+func (r *Request) RedirectResponse(url string, status int) *Response {
     p := r.newResponse()
-    p.code = code
+    p.status = status
     p.message = url
     return p
 }
@@ -205,13 +205,12 @@ func (p *Response) Header() http.Header {
     return p.rw.Header()
 }
 
-func (p *Response) WriteHeader(code int) {
-    p.rw.WriteHeader(code)
+func (p *Response) SetStatus(status int) {
+    p.rw.WriteHeader(status)
 }
 
-func (p *Response) SetCookie(c *http.Cookie) *Response {
+func (p *Response) SetCookie(c *http.Cookie) {
     http.SetCookie(p.rw, c)
-    return p
 }
 
 func (p *Response) Body() []byte {

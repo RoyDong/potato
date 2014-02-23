@@ -7,23 +7,21 @@ import (
     "net"
     "net/http"
     "os"
+    "log"
+    "sync"
+    "syscall"
     "strings"
 )
 
-/**
- * events:
- *  before_init
- *  after_init
- *
- *  before_orm_init
- *  after_orm_init
- *
- *  request, request started, just before routing
- *
- *  before_action, after routing, just before running action
- *
- *  response, just before response
- */
+/*
+events:
+    before_init
+    after_init
+    run
+    request  
+    action
+    respond
+*/
 var event = lib.NewEvent()
 
 func AddHandler(name string, handler lib.EventHandler) {
@@ -40,7 +38,7 @@ func SetAction(action Action, patterns ...string) {
 
 var ErrorAction = func(r *Request, c int, m string) *Response {
     resp := r.TextResponse(fmt.Sprintf("code: %d, message: %s", c, m))
-    resp.WriteHeader(c)
+    resp.SetStatus(c)
     return resp
 }
 
@@ -69,13 +67,13 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     var resp *Response
     if act == nil {
         resp = ErrorAction(req, 404, "route not found")
-    } else if resp = act(req); resp.code >= 400 {
+    } else if resp = act(req); resp.code > 0 {
         resp = ErrorAction(req, resp.code, resp.message)
     }
 
     event.Trigger("respond", req, resp)
-    if resp.code >= 300 && resp.code < 400 {
-        http.Redirect(w, r, resp.message, resp.code)
+    if resp.status >= 300 && resp.status < 400 {
+        http.Redirect(w, r, resp.message, resp.status)
     } else {
         w.Write(resp.body)
     }
@@ -99,13 +97,40 @@ func listener() net.Listener {
     return lsr
 }
 
-func Serve() {
-    tpl.Load(TplDir)
-    go sessionExpire()
+func replaceLogio() {
+    f, e := os.OpenFile(LogDir+Env+".log",
+        os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+    if e != nil {
+        Logger.Fatal("potato: log file", e)
+    }
+    Logger = log.New(f, "", log.LstdFlags)
+    if f, e = os.OpenFile("/dev/null", os.O_RDWR, 0); e == nil {
+        fd := int(f.Fd())
+        syscall.Dup2(fd, int(os.Stdin.Fd()))
+        syscall.Dup2(fd, int(os.Stdout.Fd()))
+        syscall.Dup2(fd, int(os.Stderr.Fd()))
+    }
+}
+
+var wg = &sync.WaitGroup{}
+
+func serve() {
+    defer wg.Done()
     srv := &http.Server{Handler: &handler{ws.Server{}}}
     lsr := listener()
     defer lsr.Close()
-    event.Trigger("before_serve")
-    defer event.Trigger("after_serve")
     Logger.Println(srv.Serve(lsr))
+}
+
+func Run() {
+    tpl.Load(TplDir)
+    go sessionExpire()
+    wg.Add(1)
+    go serve()
+    println("work work")
+    if Daemon {
+        replaceLogio()
+    }
+    event.Trigger("run")
+    wg.Wait()
 }

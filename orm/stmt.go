@@ -16,6 +16,7 @@ const (
 )
 
 type Stmt struct {
+    db *sql.DB
     tx *sql.Tx
 
     action int
@@ -33,11 +34,6 @@ type Stmt struct {
     distinct, where, group, having string
 
     offset, limit int64
-}
-
-func NewStmt() *Stmt {
-    s := &Stmt{}
-    return s.init()
 }
 
 func (s *Stmt) init() *Stmt {
@@ -271,10 +267,12 @@ func (s *Stmt) deleteStmt() string {
 func (s *Stmt) exec(query string, args ...interface{}) (sql.Result, error) {
     var e error
     var ret sql.Result
-    if s.tx == nil {
-        ret, e= DB.Exec(query, args...)
-    } else {
+    if s.db != nil {
+        ret, e = s.db.Exec(query, args...)
+    } else if s.tx != nil {
         ret, e = s.tx.Exec(query, args...)
+    } else {
+        panic("orm: error Stmt")
     }
     return ret, e
 }
@@ -322,10 +320,12 @@ func (s *Stmt) Exec(args ...interface{}) (int64, error) {
     var n int64
     if s.action == ActionCount {
         var row *sql.Row
-        if s.tx == nil {
-            row = DB.QueryRow(s.countStmt(), args...)
+        if s.db != nil {
+            row = s.db.QueryRow(s.countStmt(), args...)
+        } else if s.tx != nil {
+            row = s.tx.QueryRow(s.selectStmt(), args...)
         } else {
-            row = s.tx.QueryRow(s.countStmt(), args...)
+            panic("orm: error Stmt")
         }
         e := row.Scan(&n)
         return n, e
@@ -357,10 +357,12 @@ func (s *Stmt) Exec(args ...interface{}) (int64, error) {
 func (s *Stmt) Query(args ...interface{}) (*Rows, error) {
     var rows *sql.Rows
     var e error
-    if s.tx == nil {
-        rows, e = DB.Query(s.selectStmt(), args...)
-    } else {
+    if s.db != nil {
+        rows, e = s.db.Query(s.selectStmt(), args...)
+    } else if s.tx != nil {
         rows, e = s.tx.Query(s.selectStmt(), args...)
+    } else {
+        panic("orm: error Stmt")
     }
     if e != nil {
         return nil, e
@@ -374,35 +376,3 @@ func (s *Stmt) Query(args ...interface{}) (*Rows, error) {
     return &Rows{rows, s.alias, columns}, nil
 }
 
-
-type Tx struct {
-    tx *sql.Tx
-}
-
-func NewTx() (*Tx, error) {
-    tx, e := DB.Begin()
-    if e != nil {
-        Logger.Println("orm: ", e)
-        return nil, e
-    }
-    return &Tx{tx}, nil
-}
-
-func (tx *Tx) Stmt() *Stmt {
-    s := &Stmt{}
-    s.init()
-    s.tx = tx.tx
-    return s
-}
-
-func (tx *Tx) Save(entity interface{}) bool {
-    return save(entity, tx.tx)
-}
-
-func (tx *Tx) Commit() error {
-    return tx.tx.Commit()
-}
-
-func (tx *Tx) Rollback() error {
-    return tx.tx.Rollback()
-}

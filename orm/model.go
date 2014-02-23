@@ -37,10 +37,10 @@ func NewModel(table string, v interface{}) *Model {
 }
 
 func (m *Model) Save(entity interface{}) bool {
-    return save(entity, nil)
+    return save(entity, SqlDB(""), nil)
 }
 
-func save(entity interface{}, tx *sql.Tx) bool {
+func save(entity interface{}, db *sql.DB, tx *sql.Tx) bool {
     val := reflect.Indirect(reflect.ValueOf(entity))
     typ := val.Type()
     name := typ.Name()
@@ -91,10 +91,12 @@ func save(entity interface{}, tx *sql.Tx) bool {
 
         var result sql.Result
         var e error
-        if tx == nil {
-            result, e = DB.Exec(stmt, vals...)
-        } else {
+        if db != nil {
+            result, e = db.Exec(stmt, vals...)
+        } else if tx != nil {
             result, e = tx.Exec(stmt, vals...)
+        } else {
+            panic("orm: no database found")
         }
         if e != nil {
             Logger.Println(e)
@@ -120,12 +122,13 @@ func save(entity interface{}, tx *sql.Tx) bool {
         tbl, strings.Join(sets, ","), pkv)
 
     var e error
-    if tx == nil {
-        _, e = DB.Exec(stmt, vals...)
-    } else {
+    if db != nil {
+        _, e = db.Exec(stmt, vals...)
+    } else if tx != nil {
         _, e = tx.Exec(stmt, vals...)
+    } else {
+        panic("orm: no database found")
     }
-
     if e != nil {
         Logger.Println(e)
         return false

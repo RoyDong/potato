@@ -37,30 +37,27 @@ func (t *Template) Template(name string) *template.Template {
 func (t *Template) Include(args ...interface{}) template.HTML {
     name := args[0].(string)
     if tpl := t.root.Lookup(name); tpl != nil {
-        buffer := new(bytes.Buffer)
+        buffer := &bytes.Buffer{}
         n := len(args)
-
         if n == 1 {
             tpl.Execute(buffer, nil)
 
-            //only one argument
+        //only 2 arguments
         } else if n == 2 {
             tpl.Execute(buffer, args[1])
 
-            //set all data to a map
-            //arguments must be listed as key, value, key, value,...
-        } else if n > 2 {
+        //if more than 2 arguments set all data to a map
+        //arguments must be listed as key, value, key, value,...
+        //key must be a string, otherwise there will be a fatal error
+        } else {
             m := make(map[string]interface{}, n/2)
             for i := 1; i < n-1; i = i + 2 {
                 m[args[i].(string)] = args[i+1]
             }
-
             tpl.Execute(buffer, m)
         }
-
         return template.HTML(buffer.Bytes())
     }
-
     panic("potato: " + name + " template not found")
 }
 
@@ -130,6 +127,7 @@ type Html struct {
     css, js   []string
     title     string
     fragments map[string]template.HTML
+    layout    string
     Data      interface{}
     Content   template.HTML
 }
@@ -140,6 +138,11 @@ func NewHtml() *Html {
         js:        make([]string, 0),
         fragments: make(map[string]template.HTML),
     }
+}
+
+func (h *Html) Layout(name string) string {
+    h.layout = name
+    return ""
 }
 
 func (h *Html) Title(title ...string) string {

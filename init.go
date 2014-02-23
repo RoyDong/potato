@@ -62,10 +62,6 @@ func initConfig() {
         Port = v
     }
 
-    if v, ok := Conf.String("default_layout"); ok {
-        DefaultLayout = v
-    }
-
     if v, ok := Conf.String("template_ext"); ok {
         TemplateExt = v
     }
@@ -92,6 +88,21 @@ func initConfig() {
     if v, ok := Conf.String("pwd"); ok {
         Pwd = v
     }
+
+    if Pwd != "" {
+        os.Chdir(Pwd)
+    }
+
+    if v, ok := Conf.String("default_dbname"); ok {
+        orm.DefaultDBname = v
+    }
+    var dbfile string
+    if v, ok := Conf.String("db_config"); ok {
+        dbfile = v
+    } else {
+        dbfile = "database.yml"
+    }
+    orm.Init(ConfDir + dbfile, Logger)
 }
 
 func fork() {
@@ -119,31 +130,13 @@ func fork() {
     if sret < 0 {
         Logger.Fatal("potato: error setting sid")
     }
-
-    f, e := os.OpenFile(LogDir+Env+".log",
-        os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-    if e != nil {
-        Logger.Fatal("potato: log file", e)
-    }
-    Logger = log.New(f, "", log.LstdFlags)
-    if f, e = os.OpenFile("/dev/null", os.O_RDWR, 0); e == nil {
-        fd := int(f.Fd())
-        syscall.Dup2(fd, int(os.Stdin.Fd()))
-        syscall.Dup2(fd, int(os.Stdout.Fd()))
-        syscall.Dup2(fd, int(os.Stderr.Fd()))
-    }
 }
 
 func Init() {
-    println("work work")
     event.Trigger("before_init")
     initConfig()
-    if Pwd != "" {
-        os.Chdir(Pwd)
-    }
     if Daemon {
         fork()
     }
-    orm.Init(Conf, Logger)
     event.Trigger("after_init")
 }
