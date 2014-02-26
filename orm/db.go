@@ -3,69 +3,46 @@ package orm
 import (
     "github.com/roydong/potato/lib"
     "database/sql"
-    "os"
-    "fmt"
     "log"
 )
 
 var (
-    Logger        = log.New(os.Stdout, "", log.LstdFlags)
-    DefaultDBname = "default"
+    DefaultDB = "default"
 )
-
-type DBConf struct {
-    Type string
-    User string
-    Pass string
-    Host string
-    Name string
-    Port int
-    Maxc int
-}
 
 var dbpool = make(map[string]*DB)
 
-func Init(file string, logger *log.Logger) {
-    Logger = logger
-    var conf map[string]*DBConf
-    e := lib.LoadYaml(&conf, file)
-    if e != nil {
-        Logger.Fatal("orm: ", e)
-    }
-    for name, c := range conf {
+func Init(conf *lib.Tree) {
+    for name, c := range conf.Branches() {
         db, e := newDB(c)
         if e != nil {
-            Logger.Fatal("orm: ", e)
+            log.Fatal("orm: ", e)
         }
         dbpool[name] = db
     }
 }
 
 type DB struct {
-    db   *sql.DB
-    conf *DBConf
+    db *sql.DB
 }
 
-func newDB(conf *DBConf) (*DB, error) {
-    var db *sql.DB
-    var e error
-    dsn := fmt.Sprintf("%s:%s@(%s:%d)/%s",
-        conf.User, conf.Pass, conf.Host, conf.Port, conf.Name)
-    if db, e = sql.Open(conf.Type, dsn); e != nil {
+func newDB(conf *lib.Tree) (*DB, error) {
+    dsn, _ := conf.String("dsn")
+    typ, _ := conf.String("type")
+    db, e := sql.Open(typ, dsn)
+    if e != nil {
         return nil, e
     }
-    if e = db.Ping(); e != nil {
+    e = db.Ping()
+    if e != nil {
         return nil, e
     }
-    if conf.Maxc > 0 {
-        db.SetMaxOpenConns(conf.Maxc)
-    }
-    return &DB{db, conf}, nil
+    return &DB{db}, nil
 }
 
 func GetDB(name string) *DB {
     if name == "" {
-        name = DefaultDBname
+        name = DefaultDB
     }
     db, has := dbpool[name]
     if !has {
@@ -87,10 +64,6 @@ func SqlDB(name string) *sql.DB {
     return GetDB(name).db
 }
 
-func (d *DB) Conf() *DBConf {
-    return d.conf
-}
-
 func (d *DB) Stmt() *Stmt {
     s := &Stmt{}
     s.init()
@@ -105,7 +78,7 @@ func (d *DB) Save(entity interface{}) bool {
 func (d *DB) Begin() (*Tx, error) {
     tx, e := d.db.Begin()
     if e != nil {
-        Logger.Println("orm: ", e)
+        log.Println("orm: ", e)
         return nil, e
     }
     return &Tx{tx}, nil

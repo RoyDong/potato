@@ -4,14 +4,10 @@ env: prod
 sock_file: /run/potato.socket
 port: 37221
 
-log_dir: log/
 
 
 
-sql:
-    host: localhost
-    port: 3306
-    user: root
-    pass: 123
-    dbname: topic
-
+db:
+    default:
+        dsn: root:pass@(host:port)/dbname
+        type: mysql

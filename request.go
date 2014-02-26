@@ -6,8 +6,11 @@ import (
     "encoding/json"
     "html/template"
     "net/http"
+    "net/url"
     "strconv"
+    "strings"
     "bytes"
+    "log"
 )
 
 const (
@@ -21,7 +24,6 @@ const (
     StatusGatewayTimeout          = 504
     StatusHTTPVersionNotSupported = 505
 )
-
 
 var tpl = NewTemplate()
 
@@ -104,33 +106,117 @@ func (r *Request) Cookie(name string) *http.Cookie {
     return nil
 }
 
-func (r *Request) WSReceive() string {
+
+/*
+websocket action
+*/
+type Wsa func(wsr *Wsr) string
+
+var WsaMap = make(map[string]Wsa)
+
+/*
+short for websocket request
+*/
+type Wsr struct {
+    Request *Request
+    Path string
+    body string
+    form map[string]string
+    Bag  *lib.Tree
+}
+
+func (r *Request) newWsr(raw string) *Wsr {
+    i := 0
+    for i < len(raw) {
+        if raw[i] == '?' {
+            break
+        }
+        i++
+    }
+    return &Wsr{
+        Request: r,
+        Bag: lib.NewTree(),
+        Path: strings.Trim(raw[:i], " "),
+        body: raw[i+1:],
+    }
+}
+
+func (wsr *Wsr) parseBody() {
+    if wsr.form == nil {
+        values, e := url.ParseQuery(wsr.body)
+        wsr.form = make(map[string]string, len(values))
+        if e == nil {
+            for k, vs := range values {
+                if len(vs) > 0 {
+                    wsr.form[k] = vs[0]
+                }
+            }
+        }
+    }
+}
+
+func (wsr *Wsr) String(key string) (string, bool) {
+    wsr.parseBody()
+    v, has := wsr.form[key]
+    return v, has
+}
+
+func (wsr *Wsr) Int(k string) (int, bool) {
+    if v, has := wsr.String(k); has {
+        if i, e := strconv.ParseInt(v, 10, 0); e == nil {
+            return int(i), true
+        }
+    }
+    return 0, false
+}
+
+func (wsr *Wsr) Int64(k string) (int64, bool) {
+    if v, has := wsr.String(k); has {
+        if i, e := strconv.ParseInt(v, 10, 64); e == nil {
+            return i, true
+        }
+    }
+    return 0, false
+}
+
+func (wsr *Wsr) Float(k string) (float64, bool) {
+    if v, has := wsr.String(k); has {
+        if f, e := strconv.ParseFloat(v, 64); e == nil {
+            return f, true
+        }
+    }
+    return 0, false
+}
+
+func (r *Request) handleWs() {
     if r.ws == nil {
         panic("potato: normal request no websocket")
     }
-    var txt string
-    if e := ws.Message.Receive(r.ws, &txt); e != nil {
-        Logger.Println(e)
-        return ""
+    for {
+        var raw string
+        if e := ws.Message.Receive(r.ws, &raw); e != nil {
+            log.Println(e)
+            return
+        }
+        go func() {
+            defer func() {
+                if e := recover(); e != nil {
+                    log.Println("potato: websocket ")
+                }
+            }()
+            var txt string
+            var wsr = r.newWsr(raw)
+            if wsa, has := WsaMap[wsr.Path]; has {
+                txt = wsa(wsr)
+            } else {
+                txt = "action not found"
+            }
+            ws.Message.Send(r.ws, txt)
+        }()
     }
-    return txt
 }
 
-func (r *Request) WSSend(txt string) bool {
-    if e := ws.Message.Send(r.ws, txt); e != nil {
-        Logger.Println(e)
-        return false
-    }
-    return true
-}
 
-func (r *Request) WSSendJson(v interface{}) bool {
-    if e := ws.JSON.Send(r.ws, v); e != nil {
-        Logger.Println(e)
-        return false
-    }
-    return true
-}
 
 type Response struct {
     status  int

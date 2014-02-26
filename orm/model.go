@@ -2,6 +2,7 @@ package orm
 
 import (
     "database/sql"
+    "log"
     "fmt"
     "reflect"
     "strings"
@@ -99,13 +100,13 @@ func save(entity interface{}, db *sql.DB, tx *sql.Tx) bool {
             panic("orm: no database found")
         }
         if e != nil {
-            Logger.Println(e)
+            log.Println(e)
             return false
         }
 
         n, e := result.LastInsertId()
         if e != nil {
-            Logger.Println(e)
+            log.Println(e)
             return false
         }
 
@@ -130,7 +131,7 @@ func save(entity interface{}, db *sql.DB, tx *sql.Tx) bool {
         panic("orm: no database found")
     }
     if e != nil {
-        Logger.Println(e)
+        log.Println(e)
         return false
     }
 

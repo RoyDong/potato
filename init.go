@@ -6,8 +6,6 @@ import (
     "log"
     "os"
     "strings"
-    "runtime"
-    "syscall"
 )
 
 var (
@@ -17,10 +15,8 @@ var (
     Pwd      string
     Daemon   bool
     Conf     *lib.Tree
-    Logger   = log.New(os.Stdout, "", log.LstdFlags)
     ConfDir  = "config/"
     TplDir   = "template/"
-    LogDir   = "log/"
     Env      = "prod"
     Port     = 37221
 )
@@ -41,6 +37,13 @@ func initConfig() {
     Conf = lib.NewTree()
     if e := Conf.LoadYaml(confile, false); e != nil {
         log.Fatal("potato: ", e)
+    }
+
+    if v, ok := Conf.String("pwd"); ok {
+        Pwd = v
+    }
+    if Pwd != "" {
+        os.Chdir(Pwd)
     }
 
     if name, ok := Conf.String("name"); ok {
@@ -66,12 +69,6 @@ func initConfig() {
         TemplateExt = v
     }
 
-    if dir, ok := Conf.String("log_dir"); ok {
-        if dir[len(dir)-1] != '/' {
-            dir = dir + "/"
-        }
-        LogDir = dir
-    }
     if dir, ok := Conf.String("template_dir"); ok {
         if dir[len(dir)-1] != '/' {
             dir = dir + "/"
@@ -85,58 +82,14 @@ func initConfig() {
         ConfDir = dir
     }
 
-    if v, ok := Conf.String("pwd"); ok {
-        Pwd = v
-    }
-
-    if Pwd != "" {
-        os.Chdir(Pwd)
-    }
-
-    if v, ok := Conf.String("default_dbname"); ok {
-        orm.DefaultDBname = v
-    }
-    var dbfile string
-    if v, ok := Conf.String("db_config"); ok {
-        dbfile = v
-    } else {
-        dbfile = "database.yml"
-    }
-    orm.Init(ConfDir + dbfile, Logger)
-}
-
-func fork() {
-    darwin := runtime.GOOS == "darwin"
-    if syscall.Getppid() == 1 {
-        return
-    }
-
-    ret, ret2, err := syscall.RawSyscall(syscall.SYS_FORK, 0, 0, 0)
-    if err != 0 || ret2 < 0 {
-        Logger.Fatal("potato: error forking process")
-    }
-    if darwin && ret2 == 1 {
-        ret = 0
-    }
-    if ret > 0 {
-        os.Exit(0)
-    }
-
-    syscall.Umask(0)
-    sret, errno := syscall.Setsid()
-    if errno != nil {
-        Logger.Printf("potato: syscall.Setsid errno: %d", errno)
-    }
-    if sret < 0 {
-        Logger.Fatal("potato: error setting sid")
+    if v, ok := Conf.String("default_db"); ok {
+        orm.DefaultDB = v
     }
 }
 
 func Init() {
     event.Trigger("before_init")
     initConfig()
-    if Daemon {
-        fork()
-    }
+    orm.Init(Conf.Tree("db"))
     event.Trigger("after_init")
 }
