@@ -115,7 +115,7 @@ type Wsa func(wsr *Wsr) string
 var WsaMap = make(map[string]Wsa)
 
 /*
-short for websocket request
+for websocket request
 */
 type Wsr struct {
     Request *Request
@@ -142,21 +142,21 @@ func (r *Request) newWsr(raw string) *Wsr {
 }
 
 func (wsr *Wsr) parseBody() {
-    if wsr.form == nil {
-        values, e := url.ParseQuery(wsr.body)
-        wsr.form = make(map[string]string, len(values))
-        if e == nil {
-            for k, vs := range values {
-                if len(vs) > 0 {
-                    wsr.form[k] = vs[0]
-                }
+    values, e := url.ParseQuery(wsr.body)
+    wsr.form = make(map[string]string, len(values))
+    if e == nil {
+        for k, vs := range values {
+            if len(vs) > 0 {
+                wsr.form[k] = vs[0]
             }
         }
     }
 }
 
 func (wsr *Wsr) String(key string) (string, bool) {
-    wsr.parseBody()
+    if wsr.form == nil {
+        wsr.parseBody()
+    }
     v, has := wsr.form[key]
     return v, has
 }
@@ -201,7 +201,7 @@ func (r *Request) handleWs() {
         go func() {
             defer func() {
                 if e := recover(); e != nil {
-                    log.Println("potato: websocket ")
+                    log.Println("potato: websocket ", e)
                 }
             }()
             var txt string
@@ -215,7 +215,6 @@ func (r *Request) handleWs() {
         }()
     }
 }
-
 
 
 type Response struct {
