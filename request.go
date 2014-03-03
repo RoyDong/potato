@@ -2,13 +2,12 @@ package potato
 
 import (
     ws "code.google.com/p/go.net/websocket"
+    "github.com/ugorji/go/codec"
     "github.com/roydong/potato/lib"
     "encoding/json"
     "html/template"
     "net/http"
-    "net/url"
     "strconv"
-    "strings"
     "bytes"
     "log"
 )
@@ -110,59 +109,70 @@ func (r *Request) Cookie(name string) *http.Cookie {
 /*
 websocket action
 */
-type Wsa func(wsr *Wsr) string
+type Wsa func(wsm *Wsm)
 
 var WsaMap = make(map[string]Wsa)
 
 /*
-for websocket request
+websocket message
 */
-type Wsr struct {
-    Request *Request
-    Path string
-    body string
-    form map[string]string
-    Bag  *lib.Tree
+type Wsm struct {
+    Name    string
+    Query   map[string]string
+    Data    []byte
+    Request *Request          `codec:"-"`
+    Bag     *lib.Tree         `codec:"-"`
 }
 
-func (r *Request) newWsr(raw string) *Wsr {
-    i := 0
-    for i < len(raw) {
-        if raw[i] == '?' {
-            break
-        }
-        i++
+
+var msgpackHandle = new(codec.MsgpackHandle)
+
+func (r *Request) newWsm(raw []byte) *Wsm {
+    var wsm *Wsm
+    dec := codec.NewDecoderBytes(raw, msgpackHandle)
+    if e := dec.Decode(&wsm); e != nil {
+        panic("potato: " + e.Error())
     }
-    return &Wsr{
-        Request: r,
-        Bag: lib.NewTree(),
-        Path: strings.Trim(raw[:i], " "),
-        body: raw[i+1:],
-    }
+    wsm.Request = r
+    wsm.Bag = lib.NewTree()
+    return wsm
 }
 
-func (wsr *Wsr) parseBody() {
-    values, e := url.ParseQuery(wsr.body)
-    wsr.form = make(map[string]string, len(values))
-    if e == nil {
-        for k, vs := range values {
-            if len(vs) > 0 {
-                wsr.form[k] = vs[0]
-            }
+func (r *Request) SendWsm(name string, query map[string]string, data interface{}) {
+    wsm := &Wsm{Name: name, Query: query}
+    var enc *codec.Encoder
+    if data != nil {
+        enc = codec.NewEncoderBytes(&wsm.Data, msgpackHandle)
+        if e := enc.Encode(data); e != nil {
+            panic("potato: " + e.Error())
         }
     }
+    var buf []byte
+    enc = codec.NewEncoderBytes(&buf, msgpackHandle)
+    if e := enc.Encode(wsm); e != nil {
+        panic("potato: " + e.Error())
+    }
+    ws.Message.Send(r.ws, buf)
 }
 
-func (wsr *Wsr) String(key string) (string, bool) {
-    if wsr.form == nil {
-        wsr.parseBody()
+func (wsm *Wsm) SendWsm(name string, query map[string]string, data interface{}) {
+    wsm.Request.SendWsm(name, query, data)
+}
+
+func (wsm *Wsm) Decode(v interface{}) {
+    dec := codec.NewDecoderBytes(wsm.Data, msgpackHandle)
+    if e := dec.Decode(v); e != nil {
+        panic("potato: " + e.Error())
     }
-    v, has := wsr.form[key]
+}
+
+func (wsm *Wsm) String(key string) (string, bool) {
+    v, has := wsm.Query[key]
     return v, has
 }
 
-func (wsr *Wsr) Int(k string) (int, bool) {
-    if v, has := wsr.String(k); has {
+func (wsm *Wsm) Int(k string) (int, bool) {
+    if v, has := wsm.String(k); has {
         if i, e := strconv.ParseInt(v, 10, 0); e == nil {
             return int(i), true
         }
@@ -170,8 +180,8 @@ func (wsr *Wsr) Int(k string) (int, bool) {
     return 0, false
 }
 
-func (wsr *Wsr) Int64(k string) (int64, bool) {
-    if v, has := wsr.String(k); has {
+func (wsm *Wsm) Int64(k string) (int64, bool) {
+    if v, has := wsm.String(k); has {
         if i, e := strconv.ParseInt(v, 10, 64); e == nil {
             return i, true
         }
@@ -179,8 +189,8 @@ func (wsr *Wsr) Int64(k string) (int64, bool) {
     return 0, false
 }
 
-func (wsr *Wsr) Float(k string) (float64, bool) {
-    if v, has := wsr.String(k); has {
+func (wsm *Wsm) Float(k string) (float64, bool) {
+    if v, has := wsm.String(k); has {
         if f, e := strconv.ParseFloat(v, 64); e == nil {
             return f, true
         }
@@ -193,7 +203,7 @@ func (r *Request) handleWs() {
         panic("potato: normal request no websocket")
     }
     for {
-        var raw string
+        var raw []byte
         if e := ws.Message.Receive(r.ws, &raw); e != nil {
             log.Println(e)
             return
@@ -204,14 +214,12 @@ func (r *Request) handleWs() {
                     log.Println("potato: websocket ", e)
                 }
             }()
-            var txt string
-            var wsr = r.newWsr(raw)
-            if wsa, has := WsaMap[wsr.Path]; has {
-                txt = wsa(wsr)
+            var wsm = r.newWsm(raw)
+            if wsa, has := WsaMap[wsm.Name]; has {
+                wsa(wsm)
             } else {
-                txt = "action not found"
+                log.Println("potato: wsa " + wsm.Name + "not found")
             }
-            ws.Message.Send(r.ws, txt)
         }()
     }
 }
