@@ -7,8 +7,11 @@ import (
     "encoding/json"
     "html/template"
     "net/http"
+    "net/url"
     "strconv"
+    "strings"
     "bytes"
+    "fmt"
     "log"
 )
 
@@ -128,34 +131,57 @@ type Wsm struct {
 var msgpackHandle = new(codec.MsgpackHandle)
 
 func (r *Request) newWsm(raw []byte) *Wsm {
-    var wsm *Wsm
-    dec := codec.NewDecoderBytes(raw, msgpackHandle)
-    if e := dec.Decode(&wsm); e != nil {
-        panic("potato: " + e.Error())
+    i := 0
+    cur1:= 0
+    cur2 := 0
+    parts := make([][]byte, 3)
+    for n := len(raw); cur2 < n; cur2++ {
+        if raw[cur2] == '\n' || cur2 == n - 1 {
+            if cur2 > cur1 {
+                parts[i] = raw[cur1:cur2]
+                if i > 1 {
+                    break
+                }
+                i++
+            }
+            cur1 = cur2 + 1
+        }
     }
-    wsm.Request = r
-    wsm.Bag = lib.NewTree()
+    wsm := &Wsm{Name: string(parts[0]), Request: r, Bag: lib.NewTree()}
+    if len(parts[1]) > 0 {
+        values, e := url.ParseQuery(string(parts[1]))
+        if e == nil {
+            wsm.Query = make(map[string]string, len(values))
+            for k, vs := range values {
+                if len(vs) > 0 {
+                    wsm.Query[k] = vs[0]
+                }
+            }
+        }
+    }
+    if len(parts[2]) > 0 {
+        wsm.Data = parts[2]
+    }
     return wsm
 }
 
-func (r *Request) SendWsm(name string, query map[string]string, data interface{}) {
-    wsm := &Wsm{Name: name, Query: query}
-    var enc *codec.Encoder
+func (r *Request) SendWsm(name string, query map[string]interface{}, data interface{}) {
+    q := make([]string, 0, len(query))
+    for k, v := range query {
+        q = append(q, fmt.Sprintf("%s=%v", k, v))
+    }
+    var d []byte
     if data != nil {
-        enc = codec.NewEncoderBytes(&wsm.Data, msgpackHandle)
+        var enc *codec.Encoder
+        enc = codec.NewEncoderBytes(&d, msgpackHandle)
         if e := enc.Encode(data); e != nil {
             panic("potato: " + e.Error())
         }
     }
-    var buf []byte
-    enc = codec.NewEncoderBytes(&buf, msgpackHandle)
-    if e := enc.Encode(wsm); e != nil {
-        panic("potato: " + e.Error())
-    }
-    ws.Message.Send(r.ws, buf)
+    ws.Message.Send(r.ws, name + "\n" + strings.Join(q, "&") + "\n" + string(d) + "\n")
 }
 
-func (wsm *Wsm) SendWsm(name string, query map[string]string, data interface{}) {
+func (wsm *Wsm) Send(name string, query map[string]interface{}, data interface{}) {
     wsm.Request.SendWsm(name, query, data)
 }
 
@@ -167,8 +193,11 @@ func (wsm *Wsm) Decode(v interface{}) {
 }
 
 func (wsm *Wsm) String(key string) (string, bool) {
-    v, has := wsm.Query[key]
-    return v, has
+    if len(wsm.Query) > 0 {
+        v, has := wsm.Query[key]
+        return v, has
+    }
+    return "", false
 }
 
 func (wsm *Wsm) Int(k string) (int, bool) {
