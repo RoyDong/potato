@@ -88,19 +88,19 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func listener() net.Listener {
-    var e error
+    var err error
     var lsr net.Listener
     if len(SockFile) > 0 {
         os.Remove(SockFile)
-        lsr, e = net.Listen("unix", SockFile)
-        if e == nil {
+        lsr, err = net.Listen("unix", SockFile)
+        if err == nil {
             os.Chmod(SockFile, os.ModePerm)
             return lsr
         }
     }
-    lsr, e = net.Listen("tcp", fmt.Sprintf(":%d", Port))
-    if e != nil {
-        log.Fatal("potato:", e)
+    lsr, err = net.Listen("tcp", fmt.Sprintf(":%d", Port))
+    if err != nil {
+        log.Fatal("potato:", err)
     }
     return lsr
 }

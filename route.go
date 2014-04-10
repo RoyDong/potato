@@ -22,8 +22,11 @@ func (r *Route) Parse(path string) (Action, []string) {
     nodes := strings.Split(strings.ToLower(strings.Trim(path, "/")), "/")
     for _, name := range nodes {
         var found bool
+        var route *Route
         if len(current.statics) > 0 {
-            current, found = current.statics[name]
+            if route, found = current.statics[name]; found {
+                current = route
+            }
         }
         if !found {
             for _, route := range current.regexps {

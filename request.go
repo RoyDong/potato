@@ -61,7 +61,7 @@ func (r *Request) IsAjax() bool {
 
 func (r *Request) Int(k string) (int, bool) {
     if v, has := r.String(k); has {
-        if i, e := strconv.ParseInt(v, 10, 0); e == nil {
+        if i, err := strconv.ParseInt(v, 10, 0); err == nil {
             return int(i), true
         }
     }
@@ -70,7 +70,7 @@ func (r *Request) Int(k string) (int, bool) {
 
 func (r *Request) Int64(k string) (int64, bool) {
     if v, has := r.String(k); has {
-        if i, e := strconv.ParseInt(v, 10, 64); e == nil {
+        if i, err := strconv.ParseInt(v, 10, 64); err == nil {
             return i, true
         }
     }
@@ -79,7 +79,7 @@ func (r *Request) Int64(k string) (int64, bool) {
 
 func (r *Request) Float(k string) (float64, bool) {
     if v, has := r.String(k); has {
-        if f, e := strconv.ParseFloat(v, 64); e == nil {
+        if f, err := strconv.ParseFloat(v, 64); err == nil {
             return f, true
         }
     }
@@ -88,8 +88,8 @@ func (r *Request) Float(k string) (float64, bool) {
 
 func (r *Request) String(k string) (string, bool) {
     if k[0] == '$' {
-        n, e := strconv.ParseInt(k[1:], 10, 0)
-        if e == nil && n > 0 && int(n) <= len(r.params) {
+        n, err := strconv.ParseInt(k[1:], 10, 0)
+        if err == nil && n > 0 && int(n) <= len(r.params) {
             return r.params[n-1], true
         }
     }
@@ -131,26 +131,11 @@ type Wsm struct {
 var msgpackHandle = new(codec.MsgpackHandle)
 
 func (r *Request) newWsm(raw []byte) *Wsm {
-    i := 0
-    cur1:= 0
-    cur2 := 0
-    parts := make([][]byte, 3)
-    for n := len(raw); cur2 < n; cur2++ {
-        if raw[cur2] == '\n' || cur2 == n - 1 {
-            if cur2 > cur1 {
-                parts[i] = raw[cur1:cur2]
-                if i > 1 {
-                    break
-                }
-                i++
-            }
-            cur1 = cur2 + 1
-        }
-    }
+    parts := bytes.Split(raw, bytes.TrimLeft(raw, "\n"))
     wsm := &Wsm{Name: string(parts[0]), Request: r, Bag: lib.NewTree()}
     if len(parts[1]) > 0 {
-        values, e := url.ParseQuery(string(parts[1]))
-        if e == nil {
+        values, err := url.ParseQuery(string(parts[1]))
+        if err == nil {
             wsm.Query = make(map[string]string, len(values))
             for k, vs := range values {
                 if len(vs) > 0 {
@@ -174,8 +159,8 @@ func (r *Request) SendWsm(name string, query map[string]interface{}, data interf
     if data != nil {
         var enc *codec.Encoder
         enc = codec.NewEncoderBytes(&d, msgpackHandle)
-        if e := enc.Encode(data); e != nil {
-            panic("potato: " + e.Error())
+        if err := enc.Encode(data); err != nil {
+            panic("potato: " + err.Error())
         }
     }
     ws.Message.Send(r.ws, name + "\n" + strings.Join(q, "&") + "\n" + string(d) + "\n")
@@ -187,8 +172,8 @@ func (wsm *Wsm) Send(name string, query map[string]interface{}, data interface{}
 
 func (wsm *Wsm) Decode(v interface{}) {
     dec := codec.NewDecoderBytes(wsm.Data, msgpackHandle)
-    if e := dec.Decode(v); e != nil {
-        panic("potato: " + e.Error())
+    if err := dec.Decode(v); err != nil {
+        panic("potato: " + err.Error())
     }
 }
 
@@ -202,7 +187,7 @@ func (wsm *Wsm) String(key string) (string, bool) {
 
 func (wsm *Wsm) Int(k string) (int, bool) {
     if v, has := wsm.String(k); has {
-        if i, e := strconv.ParseInt(v, 10, 0); e == nil {
+        if i, err := strconv.ParseInt(v, 10, 0); err == nil {
             return int(i), true
         }
     }
@@ -211,7 +196,7 @@ func (wsm *Wsm) Int(k string) (int, bool) {
 
 func (wsm *Wsm) Int64(k string) (int64, bool) {
     if v, has := wsm.String(k); has {
-        if i, e := strconv.ParseInt(v, 10, 64); e == nil {
+        if i, err := strconv.ParseInt(v, 10, 64); err == nil {
             return i, true
         }
     }
@@ -220,7 +205,7 @@ func (wsm *Wsm) Int64(k string) (int64, bool) {
 
 func (wsm *Wsm) Float(k string) (float64, bool) {
     if v, has := wsm.String(k); has {
-        if f, e := strconv.ParseFloat(v, 64); e == nil {
+        if f, err := strconv.ParseFloat(v, 64); err == nil {
             return f, true
         }
     }
@@ -233,14 +218,14 @@ func (r *Request) handleWs() {
     }
     for {
         var raw []byte
-        if e := ws.Message.Receive(r.ws, &raw); e != nil {
-            log.Println(e)
+        if err := ws.Message.Receive(r.ws, &raw); err != nil {
+            log.Println(err)
             return
         }
         go func() {
             defer func() {
-                if e := recover(); e != nil {
-                    log.Println("potato: websocket ", e)
+                if err := recover(); err != nil {
+                    log.Println("potato: websocket ", err)
                 }
             }()
             var wsm = r.newWsm(raw)
@@ -299,9 +284,9 @@ func (r *Request) HtmlResponse(name string, data interface{}) *Response {
 }
 
 func (r *Request) JsonResponse(data interface{}) *Response {
-    json, e := json.Marshal(data)
-    if e != nil {
-        panic("potato: " + e.Error())
+    json, err := json.Marshal(data)
+    if err != nil {
+        panic("potato: " + err.Error())
     }
     p := r.newResponse()
     p.rw.Header().Set("Content-Type", "application/json;")

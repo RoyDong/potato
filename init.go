@@ -2,7 +2,6 @@ package potato
 
 import (
     "github.com/roydong/potato/lib"
-    "github.com/roydong/potato/orm"
     "log"
     "os"
     "strings"
@@ -35,8 +34,8 @@ func initConfig() {
     }
 
     Conf = lib.NewTree()
-    if e := Conf.LoadYaml(confile, false); e != nil {
-        log.Fatal("potato: ", e)
+    if err := Conf.LoadYaml(confile, false); err != nil {
+        log.Fatal("potato: ", err)
     }
 
     if v, ok := Conf.String("pwd"); ok {
@@ -83,13 +82,12 @@ func initConfig() {
     }
 
     if v, ok := Conf.String("default_db"); ok {
-        orm.DefaultDB = v
+        DefaultDB = v
     }
 }
 
 func Init() {
     event.Trigger("before_init")
     initConfig()
-    orm.Init(Conf.Tree("db"))
     event.Trigger("after_init")
 }

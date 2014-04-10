@@ -10,12 +10,12 @@ type Tree struct {
     name string
     branches map[string]*Tree
     value interface{}
-    locker *sync.Mutex
+    locker *sync.RWMutex
     parent *Tree
 }
 
 func NewTree() *Tree {
-    return &Tree{locker: &sync.Mutex{}}
+    return &Tree{locker: &sync.RWMutex{}}
 }
 
 /*
@@ -24,8 +24,8 @@ repl means whether to replace or keep the old value
 */
 func (t *Tree) LoadYaml(file string, repl bool) error {
     var yml interface{}
-    if e := LoadYaml(&yml, file); e != nil {
-        return e
+    if err := LoadYaml(&yml, file); err != nil {
+        return err
     }
     t.loadValue(yml, repl)
     return nil
@@ -37,8 +37,8 @@ repl means whether to replace or keep the old value
 */
 func (t *Tree) LoadJson(file string, repl bool) error {
     var json interface{}
-    if e := LoadJson(&json, file); e != nil {
-        return e
+    if err := LoadJson(&json, file); err != nil {
+        return err
     }
     t.loadValue(json, repl)
     return nil
@@ -79,6 +79,8 @@ func (t *Tree) find(key string) *Tree {
     if key == "" {
         return t
     }
+    t.locker.RLock()
+    defer t.locker.RUnlock()
     current := t
     nodes := strings.Split(
         strings.ToLower(strings.Trim(key, ".")), ".")
@@ -103,6 +105,8 @@ func (t *Tree) prepare(key string) *Tree {
     if key == "" {
         return t
     }
+    t.locker.Lock()
+    defer t.locker.Unlock()
     current := t
     nodes := strings.Split(
         strings.ToLower(strings.Trim(key, ".")), ".")
@@ -125,34 +129,16 @@ func (t *Tree) prepare(key string) *Tree {
 }
 
 func (t *Tree) Set(key string, val interface{}) {
-    t.locker.Lock()
-    defer t.locker.Unlock()
     tree := t.prepare(key)
     tree.value = val
 }
 
 func (t *Tree) Add(key string, val interface{}) bool {
-    t.locker.Lock()
-    defer t.locker.Unlock()
     if tree := t.prepare(key); tree.value == nil {
         tree.value = val
         return true
     }
     return false
-}
-
-func (t *Tree) Cut(key string) *Tree {
-    t.locker.Lock()
-    defer t.locker.Unlock()
-    tree := t.find(key)
-    if tree == nil {
-        return nil
-    }
-    if tree.parent != nil {
-        delete(tree.parent.branches, tree.name)
-        tree.locker = &sync.Mutex{}
-    }
-    return tree
 }
 
 func (t *Tree) Tree(key string) *Tree {

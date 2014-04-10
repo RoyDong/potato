@@ -86,14 +86,14 @@ func (t *Template) Load(dir string) {
  * loadTemplateFiles loads all template files under the dir recursively
  */
 func (t *Template) loadTemplateFiles(dir string) {
-    d, e := os.Open(dir)
-    if e != nil {
+    d, err := os.Open(dir)
+    if err != nil {
         return
     }
     defer d.Close()
 
-    dinfo, e := d.Readdir(-1)
-    if e != nil {
+    dinfo, err := d.Readdir(-1)
+    if err != nil {
         return
     }
 
@@ -107,9 +107,9 @@ func (t *Template) loadTemplateFiles(dir string) {
             strings.HasSuffix(info.Name(), TemplateExt) {
 
             //load file
-            if f, e := os.Open(uri); e == nil {
+            if f, err := os.Open(uri); err == nil {
                 txt := make([]byte, info.Size())
-                if _, e := f.Read(txt); e == nil {
+                if _, err := f.Read(txt); err == nil {
 
                     //init template
                     key := strings.TrimPrefix(
@@ -134,8 +134,8 @@ type Html struct {
 
 func NewHtml() *Html {
     return &Html{
-        css:       make([]string, 0),
-        js:        make([]string, 0),
+        css:       make([]string, 0, 5),
+        js:        make([]string, 0, 5),
         fragments: make(map[string]template.HTML),
     }
 }
@@ -181,7 +181,7 @@ func (h *Html) CSS(urls ...string) template.HTML {
 
 func (h *Html) cssHtml() template.HTML {
     format := `<link type="text/css" rel="stylesheet" href="%s"/>`
-    tags := make([]string, len(h.css))
+    tags := make([]string, 0, len(h.css))
     for _, uri := range h.css {
         tags = append(tags, fmt.Sprintf(format, uri))
     }
@@ -202,7 +202,7 @@ func (h *Html) JS(urls ...string) template.HTML {
 
 func (h *Html) jsHtml() template.HTML {
     format := `<script charset="utf-8" src="%s"></script>`
-    tags := make([]string, len(h.js))
+    tags := make([]string, 0, len(h.js))
     for _, uri := range h.js {
         tags = append(tags, fmt.Sprintf(format, uri))
     }

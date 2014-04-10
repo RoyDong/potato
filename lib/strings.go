@@ -25,9 +25,9 @@ func RandString(length int) string {
 }
 
 func LoadJson(v interface{}, filename string) error {
-    text, e := LoadFile(filename)
-    if e != nil {
-        return e
+    text, err := LoadFile(filename)
+    if err != nil {
+        return err
     }
 
     rows := bytes.Split(text, []byte("\n"))
@@ -42,24 +42,24 @@ func LoadJson(v interface{}, filename string) error {
 }
 
 func LoadYaml(v interface{}, filename string) error {
-    text, e := LoadFile(filename)
-    if e != nil {
-        return e
+    text, err := LoadFile(filename)
+    if err != nil {
+        return err
     }
 
     return goyaml.Unmarshal(text, v)
 }
 
 func LoadFile(filename string) ([]byte, error) {
-    file, e := os.Open(filename)
-    if e != nil {
-        return nil, e
+    file, err := os.Open(filename)
+    if err != nil {
+        return nil, err
     }
     defer file.Close()
 
-    fileInfo, e := file.Stat()
-    if e != nil {
-        return nil, e
+    fileInfo, err := file.Stat()
+    if err != nil {
+        return nil, err
     }
 
     text := make([]byte, fileInfo.Size())

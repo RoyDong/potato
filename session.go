@@ -66,14 +66,14 @@ func initSession(r *Request) {
 
 func sessionId(r *Request) string {
     rnd := make([]byte, 24)
-    if _, e := io.ReadFull(rand.Reader, rnd); e != nil {
-        panic("potato: session id " + e.Error())
+    if _, err := io.ReadFull(rand.Reader, rnd); err != nil {
+        panic("potato: session id " + err.Error())
     }
 
     sig := fmt.Sprintf("%s%d%s", r.RemoteAddr, time.Now().UnixNano(), rnd)
     hash := md5.New()
-    if _, e := hash.Write([]byte(sig)); e != nil {
-        panic("potato: session id " + e.Error())
+    if _, err := hash.Write([]byte(sig)); err != nil {
+        panic("potato: session id " + err.Error())
     }
 
     return hex.EncodeToString(hash.Sum(nil))
