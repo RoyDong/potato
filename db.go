@@ -121,11 +121,15 @@ func Scan(r *sql.Rows, dest ...interface{}) error {
     for _, val := range vals {
         row = append(row, val)
     }
+    return r.Scan(row...)
+}
 
-    if err := r.Scan(row...); err != nil {
-        return err
+func ScanRow(r *sql.Rows, dest ...interface{}) error {
+    defer r.Close()
+    if r.Next() {
+        return Scan(r, dest...)
     }
-    return nil
+    return errors.New("potato: no result")
 }
 
 type DBer interface {
@@ -136,6 +140,14 @@ type DBer interface {
 }
 
 func Save(dao interface{}, tbl string, db DBer) error {
+    return save(dao, false, tbl, db)
+}
+
+func Insert(dao interface{}, tbl string, db DBer) error {
+    return save(dao, true, tbl, db)
+}
+
+func save(dao interface{}, insert bool, tbl string, db DBer) error {
     val := reflect.Indirect(reflect.ValueOf(dao))
     typ := val.Type()
     cols := make([]string, 0, typ.NumField())
@@ -150,7 +162,6 @@ func Save(dao interface{}, tbl string, db DBer) error {
             ifc := f.Interface()
             cols = append(cols, col)
             vals = append(vals, ifc)
-
             if col == "id" {
                 pk = f
                 pkv = f.Int()
@@ -158,11 +169,7 @@ func Save(dao interface{}, tbl string, db DBer) error {
         }
     }
 
-    if pkv < 0 {
-        panic("orm: primary key(id) not specified")
-    }
-
-    if pkv == 0 {
+    if insert || pkv <= 0 {
         cs := make([]string, 0, num)
         ph := make([]string, 0, num)
         for _, col := range cols {
@@ -185,6 +192,10 @@ func Save(dao interface{}, tbl string, db DBer) error {
 
         pk.SetInt(id)
         return nil
+    }
+
+    if pkv <= 0 {
+        panic("orm: primary key(id) not specified")
     }
 
     sets := make([]string, 0, num)

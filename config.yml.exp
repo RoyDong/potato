@@ -9,5 +9,5 @@ port: 37221
 
 db:
     default:
-        dsn: root:pass@(host:port)/dbname
         type: mysql
+        dsn: root:d@(192.168.9.3:3306)/tank?parseTime=true&charset=utf8&loc=Local
