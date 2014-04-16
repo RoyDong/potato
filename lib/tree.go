@@ -6,6 +6,9 @@ import (
     "sync"
 )
 
+/*
+Tree is a structred data storage, best for configuration
+*/
 type Tree struct {
     name string
     branches map[string]*Tree
@@ -19,7 +22,7 @@ func NewTree() *Tree {
 }
 
 /*
-LoadYaml loads data read from a yaml file,
+LoadYaml reads data from a yaml file,
 repl means whether to replace or keep the old value
 */
 func (t *Tree) LoadYaml(file string, repl bool) error {
@@ -32,7 +35,7 @@ func (t *Tree) LoadYaml(file string, repl bool) error {
 }
 
 /*
-LoadJson loads data read from a json file,
+LoadJson read data from a json file,
 repl means whether to replace or keep the old value
 */
 func (t *Tree) LoadJson(file string, repl bool) error {
@@ -93,6 +96,9 @@ func (t *Tree) find(key string) *Tree {
     return current
 }
 
+/*
+Get returns value find by key, key is a path divided by "." dot
+*/
 func (t *Tree) Get(key string) interface{} {
     tree := t.find(key)
     if tree == nil {

@@ -13,6 +13,10 @@ const (
     Chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 )
 
+/*
+RandString creates a random string has length letters
+letters are all from Chars
+*/
 func RandString(length int) string {
     rnd := make([]byte, 0, length)
     max := len(Chars) - 1
@@ -24,6 +28,9 @@ func RandString(length int) string {
     return string(rnd)
 }
 
+/*
+LoadJson reads data from a json format file to v
+*/
 func LoadJson(v interface{}, filename string) error {
     text, err := LoadFile(filename)
     if err != nil {
@@ -41,6 +48,10 @@ func LoadJson(v interface{}, filename string) error {
     return json.Unmarshal(bytes.Join(rows, nil), v)
 }
 
+
+/*
+LoadJson reads data from a yaml format file to v
+*/
 func LoadYaml(v interface{}, filename string) error {
     text, err := LoadFile(filename)
     if err != nil {
@@ -50,6 +61,10 @@ func LoadYaml(v interface{}, filename string) error {
     return goyaml.Unmarshal(text, v)
 }
 
+
+/*
+LoadJson reads data from a file and returns it as bytes
+*/
 func LoadFile(filename string) ([]byte, error) {
     file, err := os.Open(filename)
     if err != nil {
